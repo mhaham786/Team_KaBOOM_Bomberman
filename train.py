@@ -77,13 +77,13 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     
     # REWARD SHAPING 
     if S is not None:
-        compass_direction = S[0] # This pulls 'UP', 'DOWN', 'LEFT', or 'RIGHT' from your features
+        compass_direction = S[0] 
         
         if compass_direction != 'WAIT':
             if A == compass_direction:
-                R += 2  # followed the BFS compass.
+                R += 2  # followed the BFS compass
             elif A != 'BOMB': 
-                R -= 1  # moved the wrong way.
+                R -= 1  # moved the wrong way
     
     self.current_reward += R
     self.current_steps += 1
