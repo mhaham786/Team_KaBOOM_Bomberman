@@ -1,4 +1,4 @@
-"""Shared synthetic-state helpers for Uttam DQN tests."""
+"""Shared synthetic-state helpers for DQN tests."""
 
 import numpy as np
 

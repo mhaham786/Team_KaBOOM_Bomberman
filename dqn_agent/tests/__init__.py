@@ -1,1 +1,1 @@
-"""Uttam DQN regression tests."""
+"""DQN regression tests."""
