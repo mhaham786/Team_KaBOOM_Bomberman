@@ -1,9 +1,11 @@
-import argparse
-import json
-from pathlib import Path
 import matplotlib.pyplot as plt
-import scienceplots
-import random
+
+try:
+    import scienceplots
+except ModuleNotFoundError:
+    scienceplots = None
+
+from .helpers import running_average
 
 
 # ----------
@@ -12,30 +14,6 @@ import random
 
 RUNNING_AVERAGE_WINDOW = 100
 SHOW_RAW_VALUES = True
-SHOW = True
-SAVE = True
-
-
-# ----------
-# Helpers
-# ----------
-
-def load_metrics(path):
-    with path.open() as file:
-        return [json.loads(line) for line in file if line.strip()]
-
-
-def running_average(values, window):
-    averages = []
-    total = 0.0
-
-    for index, value in enumerate(values):
-        total += value
-        if index >= window:
-            total -= values[index - window]
-        averages.append(total / min(index + 1, window))
-
-    return averages
 
 
 # ----------
@@ -47,12 +25,12 @@ def plot_total_score(metrics, ax):
     total_score = [metric["score"] for metric in metrics]
 
     if SHOW_RAW_VALUES:
-        ax.scatter(episodes, total_score, s=10, alpha=0.2, color= "black")
+        ax.scatter(episodes, total_score, s=10, alpha=0.2, color="black")
     ax.plot(
         episodes,
         running_average(total_score, RUNNING_AVERAGE_WINDOW),
         linewidth=2,
-        color= "black", 
+        color="black",
         label=f"{RUNNING_AVERAGE_WINDOW}-episode average",
     )
     ax.set_xlabel("Training episode")
@@ -67,7 +45,7 @@ def plot_invalid_moves(metrics, ax):
     invalid_moves = [metric["invalid_moves"] for metric in metrics]
 
     if SHOW_RAW_VALUES:
-        ax.scatter(episodes, invalid_moves, s=10, alpha=0.2, color = "black")
+        ax.scatter(episodes, invalid_moves, s=10, alpha=0.2, color="black")
     ax.plot(
         episodes,
         running_average(invalid_moves, RUNNING_AVERAGE_WINDOW),
@@ -91,8 +69,8 @@ def plot_decision_time(metrics, ax):
     mean_times = [metric["decision_time_mean"] for metric in metrics]
     max_times = [metric["decision_time_max"] for metric in metrics]
 
-    ax.plot(episodes, mean_times, marker="o", label="Mean time", ms=5, color="Blue", alpha =0.5)
-    ax.plot(episodes, max_times, marker="o", label="Max time" , ms=5, color="Red", alpha =0.5)
+    ax.plot(episodes, mean_times, marker="o", label="Mean time", ms=5, color="Blue", alpha=0.5)
+    ax.plot(episodes, max_times, marker="o", label="Max time", ms=5, color="Red", alpha=0.5)
     ax.set_xlabel("Training episode")
     ax.set_ylabel("Decision time (seconds)")
     ax.set_title("Decision time per episode")
@@ -104,7 +82,7 @@ def plot_survival(metrics, ax):
     episodes = [metric["episode"] for metric in metrics]
     survival_steps = [metric["steps"] for metric in metrics]
 
-    ax.bar(episodes,survival_steps,color='blanchedalmond', edgecolor='black')
+    ax.bar(episodes, survival_steps, color="blanchedalmond", edgecolor="black")
     ax.set_xlabel("Training episode")
     ax.set_ylabel("Steps survived")
     ax.set_title("Survival")
@@ -123,14 +101,15 @@ for i in range(50):
     })
 """
 
-plt.style.use(['science', 'no-latex'])
-fig, ((ax1, ax2), (ax3,ax4)) = plt.subplots(2, 2, figsize=(12, 8))
+def create_figure(metrics):
+    if scienceplots:
+        plt.style.use(["science", "no-latex"])
+    figure, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 8))
 
-plot_total_score(metrics, ax=ax1)
-plot_invalid_moves(metrics, ax=ax2)
-plot_decision_time(metrics, ax=ax3)
-plot_survival(metrics, ax=ax4)
+    plot_total_score(metrics, ax=ax1)
+    plot_invalid_moves(metrics, ax=ax2)
+    plot_decision_time(metrics, ax=ax3)
+    plot_survival(metrics, ax=ax4)
 
-plt.tight_layout()
-#plt.savefig("genera_metric.png")
-plt.show()
+    figure.tight_layout()
+    return figure

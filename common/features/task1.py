@@ -2,10 +2,10 @@ from collections import deque
 
 import numpy as np
 
-from .base import FeatureExtractor
+from .base import Features
 
 
-class CoinHeavenSpacialFeatures(FeatureExtractor):
+class CoinHeavenSpacialFeatures(Features):
     description = "Three 17x17 maps: board tiles, agent position, and coin positions."
 
     def encode(self, game_state):
@@ -27,7 +27,7 @@ class CoinHeavenSpacialFeatures(FeatureExtractor):
     def observation_count(self):
         return 3 * 17 * 17
 
-class CoinHeavenMinimalFeatures(FeatureExtractor):
+class CoinHeavenMinimalFeatures(Features):
     description = (
         "Agent position, nearest reachable coin direction and BFS distance, "
         "four free neighbour flags, and remaining coin fraction."

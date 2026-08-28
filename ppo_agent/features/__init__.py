@@ -1,2 +1,0 @@
-from .coin_heaven import CoinHeavenSpacialFeatures
-from .coin_heaven import CoinHeavenMinimalFeatures

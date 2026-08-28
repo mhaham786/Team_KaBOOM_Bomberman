@@ -10,7 +10,7 @@ class ExperimentRun:
         self.name = name
         self.path = config.EXPERIMENTS_DIR / name
 
-    def create(self, model, trainer):
+    def create(self, model):
         checkpoints = self.path / "checkpoints"
         metrics = self.path / "metrics"
         plots = self.path / "plots"
@@ -20,22 +20,22 @@ class ExperimentRun:
         metrics.mkdir(exist_ok=True)
         plots.mkdir(exist_ok=True)
         (metrics / "train.jsonl").touch()
-        (metrics / "eval.jsonl").touch()
 
         if not metadata_path.is_file():
             metadata = {
                 "run_id": self.name,
+                "plot": config.PLOT,
                 "actions": list(config.ACTIONS),
                 "config": {
                     name.lower(): value
                     for name, value in vars(config).items()
                     if name.isupper() and isinstance(value, int | float)
                 },
-                "trainer_class": trainer.__class__.__name__,
+                "trainer": config.TRAINER.__name__,
                 "model_structure": str(model),
                 "rewards": {
                     "class": config.REWARDS.__class__.__name__,
-                    "settings": config.REWARDS.metadata(),
+                    **config.REWARDS.metadata(),
                 },
                 "features": {
                     "class": config.FEATURES.__class__.__name__,
@@ -55,14 +55,6 @@ class ExperimentRun:
         optimizer.load_state_dict(saved["optimizer_state"])
         return True
 
-    def load_best(self, model):
-        best_path = self.path / "checkpoints" / "best.pt"
-        if not best_path.is_file():
-            return False
-
-        model.load_state_dict(torch.load(best_path, map_location="cpu", weights_only=True))
-        return True
-
     def save_latest(self, model, optimizer):
         torch.save(
             {
@@ -72,32 +64,9 @@ class ExperimentRun:
             self.path / "checkpoints" / "latest.pt",
         )
 
-    def save_best(self, model):
-        torch.save(model.state_dict(), self.path / "checkpoints" / "best.pt")
-
     def append_train_metric(self, metric):
         with (self.path / "metrics" / "train.jsonl").open("a") as file:
             file.write(json.dumps(metric) + "\n")
-
-    def append_eval_metric(self, metric):
-        with (self.path / "metrics" / "eval.jsonl").open("a") as file:
-            file.write(json.dumps(metric) + "\n")
-
-    def get_eval_progress(self):
-        metrics_path = self.path / "metrics" / "eval.jsonl"
-        if not metrics_path.is_file():
-            return 0, -1
-
-        episode = 0
-        best_score = -1
-        with metrics_path.open() as file:
-            for line in file:
-                if line.strip():
-                    metric = json.loads(line)
-                    episode = max(episode, metric["episode"])
-                    best_score = max(best_score, metric["score"])
-
-        return episode, best_score
 
     def get_progress(self):
         episode = 0

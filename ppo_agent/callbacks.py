@@ -1,6 +1,7 @@
+from time import perf_counter
+
 import torch
 from torch.distributions import Categorical
-from time import perf_counter
 
 from . import config
 from .experiment import ExperimentRun
@@ -11,7 +12,6 @@ def setup(self):
     self.model = ActorCritic(config.OBSERVATION_COUNT, len(config.ACTIONS))
     self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.LEARNING_RATE)
     self.run = ExperimentRun(config.EXPERIMENT_NAME)
-    self.evaluating = False
 
     if self.train:
         if config.RESUME_TRAINING:
@@ -30,9 +30,9 @@ def setup(self):
         self.model.train()
         checkpoint_name = "latest.pt"
     else:
-        loaded = self.run.load_best(self.model)
+        loaded = self.run.load_latest(self.model, self.optimizer)
         self.model.eval()
-        checkpoint_name = "best.pt"
+        checkpoint_name = "latest.pt"
 
     if loaded:
         self.logger.info("Loaded %s from experiment %s.", checkpoint_name, config.EXPERIMENT_NAME)
@@ -41,14 +41,12 @@ def setup(self):
 
 
 def act(self, game_state):
-    if self.evaluating:
-        start_time = perf_counter()
-
+    start_time = perf_counter() if self.train else None
     state = torch.tensor(config.FEATURES.encode(game_state), dtype=torch.float32)
 
     with torch.no_grad():
         logits, value = self.model(state)
-        if self.train and not self.evaluating:
+        if self.train:
             distribution = Categorical(logits=logits)
             action = distribution.sample()
             log_prob = distribution.log_prob(action)
@@ -56,14 +54,8 @@ def act(self, game_state):
             action = torch.argmax(logits)
 
     action_index = int(action.item())
-    if self.train and not self.evaluating:
-        self.pending_transition = {
-            "state": state,
-            "action": action_index,
-            "log_prob": log_prob.item(),
-            "value": value.item(),
-        }
-    elif self.evaluating:
+    if self.train:
         self.metrics.record_decision_time(perf_counter() - start_time)
+        self.buffer.add(state, action_index, log_prob.item(), value.item())
 
     return config.ACTIONS[action_index]
