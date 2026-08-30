@@ -2,21 +2,17 @@
 
 from pathlib import Path
 
-from ..common import features, rewards
-from . import trainers
-
-
-EXPERIMENT_NAME = "coin_heaven_small_net_less_features_gae_minibatch"
-PLOT = "task1"
-RESUME_TRAINING = False
-ACTIONS = ("UP", "RIGHT", "DOWN", "LEFT", "WAIT")
 AGENT_DIR = Path(__file__).parent
 EXPERIMENTS_DIR = AGENT_DIR / "experiments"
 
-FEATURES = features.CoinHeavenMinimalFeatures()
-REWARDS = rewards.CoinHeavenRewards()
-TRAINER = trainers.PPOTrainer
-OBSERVATION_COUNT = FEATURES.observation_count()
+ACTIONS = ("UP", "RIGHT", "DOWN", "LEFT", "WAIT")
+
+EXPERIMENT_NAME = "test"
+DESCRIPTION = "some testing"
+
+RESUME_TRAINING = False
+
+OBSERVATION_COUNT = 4
 
 LEARNING_RATE = 3e-4
 GAMMA = 0.99

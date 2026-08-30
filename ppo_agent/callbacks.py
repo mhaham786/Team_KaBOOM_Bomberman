@@ -7,6 +7,8 @@ from . import config
 from .experiment import ExperimentRun
 from .model import ActorCritic
 
+from ..common.features import *
+
 
 def setup(self):
     self.model = ActorCritic(config.OBSERVATION_COUNT, len(config.ACTIONS))
@@ -42,7 +44,7 @@ def setup(self):
 
 def act(self, game_state):
     start_time = perf_counter() if self.train else None
-    state = torch.tensor(config.FEATURES.encode(game_state), dtype=torch.float32)
+    state = torch.tensor(coin_heaven_minimal(game_state), dtype=torch.float32)
 
     with torch.no_grad():
         logits, value = self.model(state)

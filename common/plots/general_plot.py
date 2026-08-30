@@ -98,18 +98,6 @@ def plot_survival(metrics, ax):
     ax.grid(True, alpha=0.3)
     ax.legend()
 
-"""
-dummy_metrics = []
-for i in range(50):
-    dummy_metrics.append({
-        "episode": i,
-        "score": max(0, int(random.gauss(10 + i, 5))),               
-        "invalid_moves": max(0, int(random.gauss(15 - (i * 0.3), 3))), 
-        "decision_time_mean": random.uniform(0.01, 0.05),
-        "decision_time_max": random.uniform(0.08, 0.2),
-        "steps": min(400, int(random.gauss(50 + (i * 7), 20)))         
-    })
-"""
 
 def create_figure(metric):
     if scienceplots:
