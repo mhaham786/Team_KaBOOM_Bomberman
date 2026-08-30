@@ -33,12 +33,18 @@ class EpisodeMetrics:
                     "decision_time_max": self.decision_time_max,
                 }
             )
+
+        if self.path_efficiency is not None:
+            metric["path_efficiency"] = self.path_efficiency
         return metric
 
     def record_decision_time(self, duration):
         self.decision_count += 1
         self.decision_time_total += duration
         self.decision_time_max = max(self.decision_time_max, duration)
+
+    def record_path_efficiency(self, efficiency: float):
+        self.path_efficiency = efficiency
 
     def reset(self):
         self.reward = 0.0
@@ -50,3 +56,4 @@ class EpisodeMetrics:
         self.decision_count = 0
         self.decision_time_total = 0.0
         self.decision_time_max = 0.0
+        self.path_efficiency = None

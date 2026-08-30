@@ -1,7 +1,7 @@
 import logging
 import random
 from pathlib import Path
-
+from time import perf_counter
 import numpy as np
 import torch
 from torch import nn
@@ -45,6 +45,7 @@ def setup(self):
 
 def act(self, game_state: dict) -> str:
     """Return one legal action selected by epsilon-greedy masked DQN inference."""
+    start_time = perf_counter() if self.train else None
     features = state_to_features(game_state)
     if features is None:
         raise ValueError("act() received terminal game_state=None")
@@ -53,6 +54,7 @@ def act(self, game_state: dict) -> str:
     _validate_legal_mask(legal_mask)
 
     if self.train and self.epsilon > 0.0 and self.rng.random() < self.epsilon:
+        self.metrics.record_decision_time(perf_counter() - start_time)
         action_index = _sample_legal_action(legal_mask, self.rng)
         action = index_to_action(action_index)
         self.logger.debug("Exploration selected legal action %s", action)
@@ -71,6 +73,8 @@ def act(self, game_state: dict) -> str:
         float(q_values[action_index]),
         legal_mask.astype(int).tolist(),
     )
+    if self.train:
+        self.metrics.record_decision_time(perf_counter() - start_time)
     return action
 
 

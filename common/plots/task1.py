@@ -45,13 +45,6 @@ def plot_path_efficiency(metrics, ax):
 
     if SHOW_RAW_VALUES:
         ax.scatter(episodes, path_efficiency, s=10, alpha=0.2, color="black")
-    ax.plot(
-        episodes,
-        running_average(path_efficiency, RUNNING_AVERAGE_WINDOW),
-        linewidth=2,
-        color="black",
-        label=f"{RUNNING_AVERAGE_WINDOW}-episode average",
-    )
     ax.set_xlabel("Training episode")
     ax.set_ylabel("Path efficiency")
     ax.set_title("Path efficiency per episode")
@@ -59,13 +52,13 @@ def plot_path_efficiency(metrics, ax):
     ax.legend()
 
 
-def create_figure(metrics):
+def create_figure_task1(metric):
     if scienceplots:
         plt.style.use(["science", "no-latex"])
     figure, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
 
-    plot_coin_distribution(metrics, ax1)
-    plot_path_efficiency(metrics, ax2)
+    plot_coin_distribution(metric, ax1)
+    plot_path_efficiency(metric, ax2)
 
     figure.tight_layout()
     return figure

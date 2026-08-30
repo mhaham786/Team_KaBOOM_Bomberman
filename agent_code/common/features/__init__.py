@@ -1,2 +1,0 @@
-from .task1 import CoinHeavenMinimalFeatures
-from .task1 import CoinHeavenSpacialFeatures

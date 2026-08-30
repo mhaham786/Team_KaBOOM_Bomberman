@@ -5,15 +5,19 @@ import tempfile
 from collections import Counter
 from pathlib import Path
 from typing import Iterable, List, Optional
-
+import pandas as pd
 import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
-
+import matplotlib.pyplot as plt
 import events as e
 import settings as s
-from .features import ARTIFACT_VERSION, FEATURE_DIM, FEATURE_SCHEMA, has_safe_bomb_escape, state_to_features, valid_action_mask
+from ..common.metrics import EpisodeMetrics
+from ..ppo_agent import config
+from ..common.plots.general_plot import create_figure
+from ..common.plots.task1 import create_figure_task1
+from .features import ARTIFACT_VERSION, FEATURE_DIM, FEATURE_SCHEMA, has_safe_bomb_escape, state_to_features, valid_action_mask, _bfs_first_step, _bomb_positions, _opponent_positions
 from .model import (
     N_ACTIONS,
     ReplayBuffer,
@@ -24,7 +28,7 @@ from .model import (
 
 
 BATCH_SIZE = 64
-GAMMA = 0.95
+GAMMA = 0.99
 LEARNING_RATE = 1e-4
 REPLAY_CAPACITY = 50_000
 REPLAY_FORMAT_VERSION = 1
@@ -32,7 +36,7 @@ MIN_REPLAY_SIZE = 1_000
 TARGET_UPDATE_INTERVAL = 1_000
 EPSILON_START = 1.0
 EPSILON_END = 0.05
-EPSILON_DECAY_STEPS = 100_000
+EPSILON_DECAY_STEPS = 30_000
 GRADIENT_CLIP_NORM = 10.0
 RANDOM_SEED = 42
 SAVE_EVERY_ROUNDS = 25
@@ -97,7 +101,8 @@ def setup_training(self):
     buffer for backward compatibility.
     """
     _require_callback_state(self)
-    self.device = torch.device("cpu")
+    self.device = torch.device("cuda")
+    self.metrics = EpisodeMetrics()
 
     torch.manual_seed(RANDOM_SEED)
     self.rng.seed(RANDOM_SEED)
@@ -154,6 +159,22 @@ def game_events_occurred(
     new_game_state: dict,
     events: List[str],
 ):
+    if getattr(self, "needs_new_target_distance", True):
+        field = np.asarray(old_game_state["field"])
+        position = tuple(old_game_state["self"][3])
+        coins = old_game_state.get("coins", ())
+        bombs = _bomb_positions(old_game_state)
+        opponents = _opponent_positions(old_game_state)
+
+        _, distance = _bfs_first_step(field, position, coins, bombs, opponents)
+        if distance is not None:
+            self.current_target_distance = distance 
+        self.needs_new_target_distance = False
+
+    if e.COIN_COLLECTED in events:
+        if hasattr(self, "current_target_distance"):
+            self.cumulative_optimal_distance += self.current_target_distance
+        self.needs_new_target_distance = True
     """Record the newest transition pending and flush the previous one.
 
     BombeRLe can report a surviving final action here and then call
@@ -194,7 +215,14 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
         _insert_terminal_transition(self, last_game_state, last_action, events)
 
     self.completed_rounds += 1
-    _append_metrics_row(self, completed_score)
+
+    if self.round_event_counts[e.COIN_COLLECTED] > 0:
+        efficiency = self.cumulative_optimal_distance / max(1, self.round_steps)
+        self.metrics.record_path_efficiency(efficiency)
+
+    if hasattr(self, 'metrics'):
+        metric_dict = self.metrics.to_dict(self.completed_rounds, self.round_steps)
+        _append_metrics_row(self, metric_dict)
 
     if self.completed_rounds % self.save_every_rounds == 0:
         _save_policy_model(self, self.model_path)
@@ -203,10 +231,29 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     _reset_round_stats(self)
     self.policy_net.eval()
 
+    target_rounds = getattr(self, 'n_rounds',10000)
+
+    if self.completed_rounds == target_rounds:
+
+        history_df = pd.read_csv(self.metrics_path)
+        history_list = history_df.to_dict(orient='records')
+
+
+        # 1. General Plot
+        fig = create_figure(history_list)
+        fig.savefig("final_training_plot_general_GAMMA0.99.png")
+        plt.close(fig)
+
+        # 2. Task 1 Plot
+        fig_task1 = create_figure_task1(history_list)
+        fig_task1.savefig("task1_training_plot_GAMMA0.99.png")
+        plt.close(fig_task1)
+
 
 def reward_from_events(events: Iterable[str]) -> float:
     """Return baseline event reward without rewarding ordinary movement."""
     return float(sum(EVENT_REWARDS.get(event, 0.0) for event in events))
+
 
 
 def potential_from_features(features: Optional[np.ndarray]) -> float:
@@ -523,6 +570,7 @@ def _after_transition(
     self.round_event_reward += float(event_reward)
     self.round_shaping_reward += float(shaping_reward)
     self.round_event_counts.update(events)
+    self.metrics.record_events(list(events), float(event_reward))
 
 
 def _record_loss(self, loss: Optional[float]) -> None:
@@ -542,6 +590,10 @@ def _reset_round_stats(self) -> None:
     self.round_shaping_reward = 0.0
     self.round_event_counts = Counter()
     self.round_losses = []
+    self.cumulative_optimal_distance = 0
+    self.needs_new_target_distance = True
+    if hasattr(self, 'metrics'):
+        self.metrics.reset()
 
 
 def _sync_target_network(self) -> None:
@@ -592,16 +644,16 @@ def _metrics_row(self, completed_score: int) -> dict:
     return row
 
 
-def _append_metrics_row(self, completed_score: int) -> None:
-    """Append one round of metrics, writing the CSV header if needed."""
+def _append_metrics_row(self, metric_dict: dict) -> None:
+    """Append one round of metrics using the dictionary from metrics.py."""
     self.metrics_path.parent.mkdir(parents=True, exist_ok=True)
     write_header = not self.metrics_path.exists() or self.metrics_path.stat().st_size == 0
+    
     with self.metrics_path.open("a", newline="") as file:
-        writer = csv.DictWriter(file, fieldnames=METRICS_COLUMNS)
+        writer = csv.DictWriter(file, fieldnames=list(metric_dict.keys()))
         if write_header:
             writer.writeheader()
-        writer.writerow(_metrics_row(self, completed_score))
-
+        writer.writerow(metric_dict)
 
 def _require_v2_model_path(model_path) -> Path:
     """Return model_path only when it names the isolated V2 model artifact."""
@@ -874,7 +926,7 @@ def _restore_replay_buffer(payload: dict) -> ReplayBuffer:
         raise ValueError("non-terminal replay rows must have at least one valid next action")
     if bool((dones & next_valid_masks.any(dim=1)).any()):
         raise ValueError("terminal replay rows must have all-false next_valid_masks")
-
+        
     replay_buffer = ReplayBuffer(capacity)
     for index in range(length):
         done = bool(dones[index].item())
@@ -887,7 +939,6 @@ def _restore_replay_buffer(payload: dict) -> ReplayBuffer:
             next_valid_masks[index].numpy().copy(),
         )
     return replay_buffer
-
 
 def _load_training_checkpoint(self, checkpoint_path: Path) -> None:
     """Restore compatible training state, failing clearly on incompatible files."""
@@ -938,7 +989,6 @@ def _load_training_checkpoint(self, checkpoint_path: Path) -> None:
     self.policy_net.eval()
     self.target_net.eval()
     self.logger.info("Loaded DQN training checkpoint from %s", checkpoint_path)
-
 
 def _atomic_torch_save(payload, destination: Path) -> None:
     """Write a torch file atomically by replacing from a sibling temporary file."""

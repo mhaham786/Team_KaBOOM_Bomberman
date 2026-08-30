@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
 try:
     import scienceplots
@@ -30,7 +31,7 @@ def plot_total_score(metrics, ax):
         episodes,
         running_average(total_score, RUNNING_AVERAGE_WINDOW),
         linewidth=2,
-        color="black",
+        color="red",
         label=f"{RUNNING_AVERAGE_WINDOW}-episode average",
     )
     ax.set_xlabel("Training episode")
@@ -69,11 +70,13 @@ def plot_decision_time(metrics, ax):
     mean_times = [metric["decision_time_mean"] for metric in metrics]
     max_times = [metric["decision_time_max"] for metric in metrics]
 
-    ax.plot(episodes, mean_times, marker="o", label="Mean time", ms=5, color="Blue", alpha=0.5)
-    ax.plot(episodes, max_times, marker="o", label="Max time", ms=5, color="Red", alpha=0.5)
+    ax.plot(episodes, mean_times, marker="o",ls="none", label="Mean time", ms=2, color="Blue", alpha=0.3)
+    ax.plot(episodes, max_times, marker="o", ls="none", label="Max time", ms=2, color="Red", alpha=0.3)
     ax.set_xlabel("Training episode")
     ax.set_ylabel("Decision time (seconds)")
     ax.set_title("Decision time per episode")
+    upper_limit = np.percentile(max_times, 99)
+    ax.set_ylim(0, upper_limit)
     ax.grid(True, alpha=0.3)
     ax.legend()
     
@@ -82,11 +85,18 @@ def plot_survival(metrics, ax):
     episodes = [metric["episode"] for metric in metrics]
     survival_steps = [metric["steps"] for metric in metrics]
 
-    ax.bar(episodes, survival_steps, color="blanchedalmond", edgecolor="black")
+    ax.plot(episodes, survival_steps, marker="o", ls="none", color="orange", ms=2, alpha=0.2, label="Steps")
+    ax.plot(
+        episodes,
+        running_average(survival_steps, RUNNING_AVERAGE_WINDOW),
+        linewidth=2,
+        label=f"{RUNNING_AVERAGE_WINDOW}-episode average",
+    )
     ax.set_xlabel("Training episode")
     ax.set_ylabel("Steps survived")
     ax.set_title("Survival")
     ax.grid(True, alpha=0.3)
+    ax.legend()
 
 """
 dummy_metrics = []
@@ -101,15 +111,15 @@ for i in range(50):
     })
 """
 
-def create_figure(metrics):
+def create_figure(metric):
     if scienceplots:
         plt.style.use(["science", "no-latex"])
     figure, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 8))
 
-    plot_total_score(metrics, ax=ax1)
-    plot_invalid_moves(metrics, ax=ax2)
-    plot_decision_time(metrics, ax=ax3)
-    plot_survival(metrics, ax=ax4)
+    plot_total_score(metric, ax=ax1)
+    plot_invalid_moves(metric, ax=ax2)
+    plot_decision_time(metric, ax=ax3)
+    plot_survival(metric, ax=ax4)
 
     figure.tight_layout()
     return figure
