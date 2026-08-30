@@ -6,7 +6,9 @@ import numpy as np
 import torch
 from torch import nn
 
-from .features import ARTIFACT_VERSION, FEATURE_DIM, FEATURE_SCHEMA, state_to_features, valid_action_mask
+from ..common.features import advanced_features_oc31
+from ..common.helpers import bomb_positions, opponent_positions, valid_action_mask
+from .train import ARTIFACT_VERSION, FEATURE_DIM, FEATURE_SCHEMA
 from .model import ACTIONS, N_ACTIONS, build_dqn, index_to_action
 
 
@@ -46,11 +48,11 @@ def setup(self):
 def act(self, game_state: dict) -> str:
     """Return one legal action selected by epsilon-greedy masked DQN inference."""
     start_time = perf_counter() if self.train else None
-    features = state_to_features(game_state)
+    features = advanced_features_oc31(game_state)
     if features is None:
         raise ValueError("act() received terminal game_state=None")
 
-    legal_mask = valid_action_mask(game_state)
+    legal_mask = action_mask(game_state)
     _validate_legal_mask(legal_mask)
 
     if self.train and self.epsilon > 0.0 and self.rng.random() < self.epsilon:
@@ -76,6 +78,19 @@ def act(self, game_state: dict) -> str:
     if self.train:
         self.metrics.record_decision_time(perf_counter() - start_time)
     return action
+
+
+def action_mask(game_state):
+    """Return the valid-action mask for a game state."""
+    field = np.asarray(game_state["field"])
+    _, _, bombs_left, position = game_state["self"]
+    return valid_action_mask(
+        field,
+        tuple(position),
+        bombs_left,
+        bomb_positions(game_state.get("bombs", ())),
+        opponent_positions(game_state.get("others", ())),
+    )
 
 
 def _load_policy_state(policy_net: nn.Module, model_path: Path, logger: logging.Logger) -> None:

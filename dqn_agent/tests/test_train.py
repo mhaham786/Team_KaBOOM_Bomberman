@@ -161,9 +161,15 @@ def _run_self_test() -> None:
 
     old_state = _make_test_state(step=1)
     next_state = _make_test_state(position=(4, 3), coin=(4, 3), score=s.REWARD_COIN, step=2)
-    old_features = state_to_features(old_state)
-    next_features = state_to_features(next_state)
-    next_mask = valid_action_mask(next_state)
+    old_features = advanced_features_oc31(old_state)
+    next_features = advanced_features_oc31(next_state)
+    next_mask = valid_action_mask(
+        np.asarray(next_state["field"]),
+        tuple(next_state["self"][3]),
+        next_state["self"][2],
+        bomb_positions(next_state.get("bombs", ())),
+        opponent_positions(next_state.get("others", ())),
+    )
     assert np.isfinite(potential_from_features(old_features))
     shaping = potential_shaping(old_features, next_features)
     assert -2.0 <= shaping <= 2.0
@@ -171,16 +177,16 @@ def _run_self_test() -> None:
     assert -2.0 <= terminal_shaping <= 2.0
 
     useless_bomb_state = _make_useless_bomb_state(step=1)
-    useless_bomb_features = state_to_features(useless_bomb_state)
+    useless_bomb_features = advanced_features_oc31(useless_bomb_state)
     crate_bomb_state = _make_test_state(step=1)
-    crate_bomb_features = state_to_features(crate_bomb_state)
+    crate_bomb_features = advanced_features_oc31(crate_bomb_state)
     opponent_bomb_state = _make_useless_bomb_state(step=1)
     opponent_bomb_state["others"] = [("enemy", 0, True, (5, 3))]
-    opponent_bomb_features = state_to_features(opponent_bomb_state)
+    opponent_bomb_features = advanced_features_oc31(opponent_bomb_state)
     unsafe_useless_state = _make_unsafe_bomb_state(useful=False, step=1)
-    unsafe_useless_features = state_to_features(unsafe_useless_state)
+    unsafe_useless_features = advanced_features_oc31(unsafe_useless_state)
     unsafe_useful_state = _make_unsafe_bomb_state(useful=True, step=1)
-    unsafe_useful_features = state_to_features(unsafe_useful_state)
+    unsafe_useful_features = advanced_features_oc31(unsafe_useful_state)
     assert useless_bomb_features[29] == 0.0
     assert useless_bomb_features[30] == 0.0
     assert action_shaping_reward("BOMB", useless_bomb_features, [e.BOMB_DROPPED], useless_bomb_state) == USELESS_BOMB_PENALTY

@@ -14,10 +14,16 @@ import matplotlib.pyplot as plt
 import events as e
 import settings as s
 from ..common.metrics import EpisodeMetrics
-from ..ppo_agent import config
+from ..common.features import advanced_features_oc31
+from ..common.helpers import (
+    bfs_first_step,
+    bomb_positions,
+    has_safe_bomb_escape,
+    opponent_positions,
+    valid_action_mask,
+)
 from ..common.plots.general_plot import create_figure
 from ..common.plots.task1 import create_figure_task1
-from .features import ARTIFACT_VERSION, FEATURE_DIM, FEATURE_SCHEMA, has_safe_bomb_escape, state_to_features, valid_action_mask, _bfs_first_step, _bomb_positions, _opponent_positions
 from .model import (
     N_ACTIONS,
     ReplayBuffer,
@@ -28,6 +34,9 @@ from .model import (
 
 
 BATCH_SIZE = 64
+FEATURE_DIM = 31
+FEATURE_SCHEMA = "uttam_dqn_v2_time_escape_31"
+ARTIFACT_VERSION = 2
 GAMMA = 0.99
 LEARNING_RATE = 1e-4
 REPLAY_CAPACITY = 50_000
@@ -163,10 +172,10 @@ def game_events_occurred(
         field = np.asarray(old_game_state["field"])
         position = tuple(old_game_state["self"][3])
         coins = old_game_state.get("coins", ())
-        bombs = _bomb_positions(old_game_state)
-        opponents = _opponent_positions(old_game_state)
+        bombs = bomb_positions(old_game_state.get("bombs", ()))
+        opponents = opponent_positions(old_game_state.get("others", ()))
 
-        _, distance = _bfs_first_step(field, position, coins, bombs, opponents)
+        _, distance = bfs_first_step(field, position, coins, bombs, opponents)
         if distance is not None:
             self.current_target_distance = distance 
         self.needs_new_target_distance = False
@@ -309,8 +318,18 @@ def action_shaping_reward(
     reward = 0.0
     if feature_array[29] == 0.0 and feature_array[30] == 0.0:
         reward += USELESS_BOMB_PENALTY
-    if old_game_state is not None and not has_safe_bomb_escape(old_game_state, s.BOMB_TIMER):
-        reward += UNSAFE_BOMB_PENALTY
+    if old_game_state is not None:
+        field = np.asarray(old_game_state["field"])
+        position = tuple(old_game_state["self"][3])
+        if not has_safe_bomb_escape(
+            field,
+            position,
+            old_game_state.get("bombs", ()),
+            opponent_positions(old_game_state.get("others", ())),
+            old_game_state.get("explosion_map"),
+            s.BOMB_TIMER,
+        ):
+            reward += UNSAFE_BOMB_PENALTY
     return float(reward)
 
 
@@ -369,8 +388,8 @@ def _make_pending_transition(
     events: Iterable[str],
 ) -> dict:
     """Build a pending transition from the framework's step callback."""
-    old_features = state_to_features(old_game_state)
-    new_features = state_to_features(new_game_state)
+    old_features = advanced_features_oc31(old_game_state)
+    new_features = advanced_features_oc31(new_game_state)
     if old_features is None or new_features is None:
         raise ValueError("non-terminal game event states must not be None")
     event_list = list(events)
@@ -382,7 +401,13 @@ def _make_pending_transition(
         "old_game_state": old_game_state,
         "action_index": action_to_index(action),
         "next_state": new_features,
-        "next_valid_mask": valid_action_mask(new_game_state),
+        "next_valid_mask": valid_action_mask(
+            np.asarray(new_game_state["field"]),
+            tuple(new_game_state["self"][3]),
+            new_game_state["self"][2],
+            bomb_positions(new_game_state.get("bombs", ())),
+            opponent_positions(new_game_state.get("others", ())),
+        ),
         "events": event_list,
         "event_reward": reward_from_events(event_list),
         "shaping_reward": potential_shaping(old_features, new_features)
@@ -445,7 +470,7 @@ def _insert_terminal_transition(
     events: Iterable[str],
 ) -> Optional[float]:
     """Insert a terminal transition for a final action without a post-state."""
-    last_features = state_to_features(last_game_state)
+    last_features = advanced_features_oc31(last_game_state)
     if last_features is None:
         raise ValueError("last_game_state must not be None for terminal transition")
     event_list = list(events)

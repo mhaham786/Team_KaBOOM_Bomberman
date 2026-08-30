@@ -15,7 +15,7 @@ from .. import callbacks as callbacks_module
 from ..callbacks import (
     ACTIONS, ARTIFACT_VERSION, CPU_DEVICE, FEATURE_DIM, FEATURE_SCHEMA,
     MODEL_FILENAME, N_ACTIONS, act, build_dqn, index_to_action,
-    state_to_features, valid_action_mask, _default_model_path,
+    action_mask, advanced_features_oc31, _default_model_path,
     _load_policy_state, _sample_legal_action, _select_greedy_action,
 )
 from .fixtures import bordered_field
@@ -61,7 +61,7 @@ def _make_blocked_test_state():
 
 def _run_self_test() -> None:
     state = _make_test_state()
-    features = state_to_features(state)
+    features = advanced_features_oc31(state)
     assert features.shape == (FEATURE_DIM,)
 
     policy = build_dqn(FEATURE_DIM)
@@ -83,7 +83,7 @@ def _run_self_test() -> None:
     assert sampled == {1, 4}
 
     blocked_state = _make_blocked_test_state()
-    blocked_mask = valid_action_mask(blocked_state)
+    blocked_mask = action_mask(blocked_state)
     assert not blocked_mask[0]
     assert not blocked_mask[1]
     assert not blocked_mask[3]

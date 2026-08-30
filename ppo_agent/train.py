@@ -20,14 +20,14 @@ def game_events_occurred(
     if not self.buffer.pending:
         return
 
-    reward = coin_heaven_rewards(events)
+    reward = coin_heaven_rewards_ppo(events)
     self.metrics.record_events(events, reward)
     self.buffer.finish(reward, False)
 
 
 def end_of_round(self, last_game_state, last_action, events):
     if self.buffer.pending:
-        reward = coin_heaven_rewards(events)
+        reward = coin_heaven_rewards_ppo(events)
         self.metrics.record_events(events, reward)
         self.buffer.finish(reward, True)
     elif self.buffer.states:

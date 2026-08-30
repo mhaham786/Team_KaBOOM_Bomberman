@@ -80,7 +80,7 @@ class DQN(nn.Module):
         """
         Return Q-values for a batch of feature vectors.
 
-        REVIEW: state_to_features should produce flat float vectors whose
+        REVIEW: advanced_features_oc31 should produce flat float vectors whose
         length matches input_dim. If you later switch to image-like channels,
         replace this MLP with a CNN or flatten before calling the model.
         """

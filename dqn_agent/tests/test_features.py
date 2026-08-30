@@ -4,12 +4,45 @@ import unittest
 
 import numpy as np
 
-from ..features import *
-from ..features import (
-    _blast_tiles, _build_danger_map, _build_time_hazard_model,
-    _is_safe_at_time, _time_safe_escape_directions,
-)
+from ...common.features import advanced_features_oc31
+from ...common.helpers import *
+from ..train import FEATURE_DIM
 from .fixtures import bordered_field
+
+
+def action_mask(state):
+    field = np.asarray(state["field"])
+    _, _, bombs_left, position = state["self"]
+    return valid_action_mask(
+        field,
+        tuple(position),
+        bombs_left,
+        bomb_positions(state.get("bombs", ())),
+        opponent_positions(state.get("others", ())),
+    )
+
+
+def escape_directions(state):
+    _, _, bombs_left, position = state["self"]
+    return time_safe_escape_directions(
+        np.asarray(state["field"]),
+        tuple(position),
+        bombs_left,
+        state.get("bombs", ()),
+        opponent_positions(state.get("others", ())),
+        state.get("explosion_map"),
+    )
+
+
+def safe_bomb_escape(state, max_steps):
+    return has_safe_bomb_escape(
+        np.asarray(state["field"]),
+        tuple(state["self"][3]),
+        state.get("bombs", ()),
+        opponent_positions(state.get("others", ())),
+        state.get("explosion_map"),
+        max_steps,
+    )
 
 def _make_test_state():
     """Create a small deterministic synthetic state for executable self-tests."""
@@ -81,12 +114,12 @@ def _run_self_test() -> None:
     original_field = state["field"].copy()
     original_explosion_map = state["explosion_map"].copy()
 
-    features = state_to_features(state)
+    features = advanced_features_oc31(state)
     assert features.shape == (FEATURE_DIM,)
     assert features.dtype == np.float32
     assert np.isfinite(features).all()
 
-    mask = valid_action_mask(state)
+    mask = action_mask(state)
     assert mask.shape == (len(ACTIONS),)
     assert mask.dtype == np.bool_
     assert mask.any()
@@ -102,7 +135,7 @@ def _run_self_test() -> None:
     assert set(np.unique(features[25:29])).issubset({0.0, 1.0})
 
     assert features[5] > 0.0
-    danger_map = _build_danger_map(state["field"], state["bombs"], state["explosion_map"])
+    danger_map = build_danger_map(state["field"], state["bombs"], state["explosion_map"])
     assert danger_map[3, 2] > 0.0
     assert danger_map[3, 1] == 0.0
     assert features[7] == 1.0
@@ -111,16 +144,16 @@ def _run_self_test() -> None:
     blast_field = blast_state["field"].copy()
     blast_field[5, 4] = 1
     blast_state["field"] = blast_field
-    blast_tiles = set(_blast_tiles((4, 4), blast_field))
-    assert (5, 4) in blast_tiles
-    assert (6, 4) in blast_tiles
-    assert (7, 4) in blast_tiles
-    blast_danger = _build_danger_map(blast_field, [((4, 4), 1)], np.zeros_like(blast_field))
+    reached_tiles = set(blast_tiles((4, 4), blast_field))
+    assert (5, 4) in reached_tiles
+    assert (6, 4) in reached_tiles
+    assert (7, 4) in reached_tiles
+    blast_danger = build_danger_map(blast_field, [((4, 4), 1)], np.zeros_like(blast_field))
     assert blast_danger[6, 4] > 0.0
 
     wall_field = blast_field.copy()
     wall_field[6, 4] = -1
-    wall_tiles = set(_blast_tiles((4, 4), wall_field))
+    wall_tiles = set(blast_tiles((4, 4), wall_field))
     assert (5, 4) in wall_tiles
     assert (6, 4) not in wall_tiles
     assert (7, 4) not in wall_tiles
@@ -130,82 +163,82 @@ def _run_self_test() -> None:
     for tile in ((5, 4), (6, 4), (7, 4), (3, 4), (2, 4), (1, 4)):
         six_field[tile] = 1
     six_crate_state["field"] = six_field
-    assert state_to_features(six_crate_state)[29] == np.float32(0.5)
+    assert advanced_features_oc31(six_crate_state)[29] == np.float32(0.5)
 
     max_crate_state = _make_open_state()
     max_field = max_crate_state["field"].copy()
-    for tile in _blast_tiles((4, 4), max_field):
+    for tile in blast_tiles((4, 4), max_field):
         if tile != (4, 4):
             max_field[tile] = 1
     max_crate_state["field"] = max_field
-    assert state_to_features(max_crate_state)[29] == np.float32(1.0)
+    assert advanced_features_oc31(max_crate_state)[29] == np.float32(1.0)
 
     opponent_blast_state = _make_open_state()
     opponent_field = opponent_blast_state["field"].copy()
     opponent_field[5, 4] = 1
     opponent_blast_state["field"] = opponent_field
     opponent_blast_state["others"] = [("enemy", 0, True, (6, 4))]
-    assert state_to_features(opponent_blast_state)[30] == 1.0
+    assert advanced_features_oc31(opponent_blast_state)[30] == 1.0
 
     hazard_field = _make_open_state()["field"]
-    timer_hazard = _build_time_hazard_model(hazard_field, [((4, 6), 1)], np.zeros_like(hazard_field))
-    assert _is_safe_at_time((4, 4), 1, timer_hazard)
-    assert not _is_safe_at_time((4, 4), 2, timer_hazard)
-    assert not _is_safe_at_time((4, 4), 3, timer_hazard)
-    assert _is_safe_at_time((4, 4), 4, timer_hazard)
+    timer_hazard = build_time_hazard_model(hazard_field, [((4, 6), 1)], np.zeros_like(hazard_field))
+    assert is_safe_at_time((4, 4), 1, timer_hazard)
+    assert not is_safe_at_time((4, 4), 2, timer_hazard)
+    assert not is_safe_at_time((4, 4), 3, timer_hazard)
+    assert is_safe_at_time((4, 4), 4, timer_hazard)
 
-    hypothetical_hazard = _build_time_hazard_model(
+    hypothetical_hazard = build_time_hazard_model(
         hazard_field,
         [],
         np.zeros_like(hazard_field),
         hypothetical_origin=(4, 4),
     )
-    assert _is_safe_at_time((4, 4), 4, hypothetical_hazard)
-    assert not _is_safe_at_time((4, 4), 5, hypothetical_hazard)
-    assert not _is_safe_at_time((4, 4), 6, hypothetical_hazard)
-    assert _is_safe_at_time((4, 4), 7, hypothetical_hazard)
+    assert is_safe_at_time((4, 4), 4, hypothetical_hazard)
+    assert not is_safe_at_time((4, 4), 5, hypothetical_hazard)
+    assert not is_safe_at_time((4, 4), 6, hypothetical_hazard)
+    assert is_safe_at_time((4, 4), 7, hypothetical_hazard)
 
     map_one = np.zeros_like(hazard_field, dtype=np.float32)
     map_one[5, 4] = 1.0
-    map_one_hazard = _build_time_hazard_model(hazard_field, [], map_one)
-    assert not _is_safe_at_time((5, 4), 1, map_one_hazard)
+    map_one_hazard = build_time_hazard_model(hazard_field, [], map_one)
+    assert not is_safe_at_time((5, 4), 1, map_one_hazard)
 
     map_zero = np.zeros_like(hazard_field, dtype=np.float32)
-    map_zero_hazard = _build_time_hazard_model(hazard_field, [], map_zero, min_horizon=1)
-    assert _is_safe_at_time((5, 4), 1, map_zero_hazard)
+    map_zero_hazard = build_time_hazard_model(hazard_field, [], map_zero, min_horizon=1)
+    assert is_safe_at_time((5, 4), 1, map_zero_hazard)
 
     timing_state = _make_open_state(position=(4, 4), bomb_available=False)
     timing_state["explosion_map"][5, 4] = 1.0
-    actual_escape = _time_safe_escape_directions(timing_state)
+    actual_escape = escape_directions(timing_state)
     assert actual_escape[1] == 0.0
 
     timing_state["explosion_map"][5, 4] = 0.0
-    actual_escape_after_last_tick = _time_safe_escape_directions(timing_state)
+    actual_escape_after_last_tick = escape_directions(timing_state)
     assert actual_escape_after_last_tick[1] == 1.0
 
     timing_state["self"] = ("uttam", 0, True, (4, 4))
-    hypothetical_escape = _time_safe_escape_directions(timing_state)
+    hypothetical_escape = escape_directions(timing_state)
     assert hypothetical_escape[1] == 1.0
 
     origin_danger_state = _make_open_state(position=(4, 4), bomb_available=True)
     origin_danger_state["explosion_map"][4, 4] = 1.0
-    assert not _time_safe_escape_directions(origin_danger_state).any()
+    assert not escape_directions(origin_danger_state).any()
 
     actual_origin_bomb_state = _make_open_state(position=(4, 4), bomb_available=True)
     actual_origin_bomb_state["bombs"] = [((4, 4), 3)]
     actual_origin_bomb_state["explosion_map"][5, 4] = 1.0
-    assert valid_action_mask(actual_origin_bomb_state)[5] == np.bool_(False)
-    assert _time_safe_escape_directions(actual_origin_bomb_state)[1] == 0.0
+    assert action_mask(actual_origin_bomb_state)[5] == np.bool_(False)
+    assert escape_directions(actual_origin_bomb_state)[1] == 0.0
 
     moving_escape_state = _make_open_state(position=(4, 4), bomb_available=True)
-    moving_escape = _time_safe_escape_directions(moving_escape_state)
-    moving_hazard = _build_time_hazard_model(
+    moving_escape = escape_directions(moving_escape_state)
+    moving_hazard = build_time_hazard_model(
         moving_escape_state["field"],
         [],
         moving_escape_state["explosion_map"],
         hypothetical_origin=(4, 4),
     )
-    assert not _is_safe_at_time((5, 4), 5, moving_hazard)
+    assert not is_safe_at_time((5, 4), 5, moving_hazard)
     assert moving_escape[1] == 1.0
 
     four_crate_state = dict(state)
@@ -219,7 +252,7 @@ def _run_self_test() -> None:
     four_crate_state["bombs"] = []
     four_crate_state["coins"] = []
     four_crate_state["explosion_map"] = np.zeros_like(four_crate_field, dtype=np.float32)
-    assert state_to_features(four_crate_state)[29] == np.float32(4.0 / 12.0)
+    assert advanced_features_oc31(four_crate_state)[29] == np.float32(4.0 / 12.0)
 
     unreachable_opponent_state = dict(state)
     opponent_field = bordered_field(7)
@@ -233,7 +266,7 @@ def _run_self_test() -> None:
     unreachable_opponent_state["bombs"] = []
     unreachable_opponent_state["coins"] = []
     unreachable_opponent_state["explosion_map"] = np.zeros_like(opponent_field, dtype=np.float32)
-    opponent_features = state_to_features(unreachable_opponent_state)
+    opponent_features = advanced_features_oc31(unreachable_opponent_state)
     assert opponent_features[22] == 1.0
     assert 0.0 < opponent_features[24] < 1.0
 
@@ -241,28 +274,28 @@ def _run_self_test() -> None:
 
     bomb_blocked_state = dict(state)
     bomb_blocked_state["bombs"] = [((4, 3), 3)]
-    assert valid_action_mask(bomb_blocked_state)[1] == np.bool_(False)
+    assert action_mask(bomb_blocked_state)[1] == np.bool_(False)
 
     no_bomb_state = dict(state)
     no_bomb_state["self"] = ("uttam", 0, False, (3, 3))
-    assert state_to_features(no_bomb_state)[4] == 0.0
-    assert valid_action_mask(no_bomb_state)[5] == np.bool_(False)
+    assert advanced_features_oc31(no_bomb_state)[4] == 0.0
+    assert action_mask(no_bomb_state)[5] == np.bool_(False)
 
-    assert state_to_features(None) is None
+    assert advanced_features_oc31(None) is None
 
     escape_state = _make_escape_state(trapped=False)
     escape_field_before = escape_state["field"].copy()
     escape_explosion_before = escape_state["explosion_map"].copy()
-    assert has_safe_bomb_escape(escape_state, 4) is True
+    assert safe_bomb_escape(escape_state, 4) is True
     np.testing.assert_array_equal(escape_state["field"], escape_field_before)
     np.testing.assert_array_equal(escape_state["explosion_map"], escape_explosion_before)
 
     trapped_state = _make_escape_state(trapped=True)
-    assert has_safe_bomb_escape(trapped_state, 4) is False
+    assert safe_bomb_escape(trapped_state, 4) is False
 
     for invalid_steps in (0, -1, 1.5, True):
         try:
-            has_safe_bomb_escape(escape_state, invalid_steps)
+            safe_bomb_escape(escape_state, invalid_steps)
         except ValueError:
             pass
         else:

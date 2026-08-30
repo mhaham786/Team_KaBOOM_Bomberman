@@ -1,6 +1,6 @@
 import events as e
 
-def coin_heaven_rewards(events):
+def coin_heaven_rewards_ppo(events):
     reward = -0.001
     if e.COIN_COLLECTED in events:
         reward += 2.0

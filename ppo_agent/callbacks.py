@@ -44,7 +44,7 @@ def setup(self):
 
 def act(self, game_state):
     start_time = perf_counter() if self.train else None
-    state = torch.tensor(coin_heaven_minimal(game_state), dtype=torch.float32)
+    state = torch.tensor(coin_heaven_minimal_oc4(game_state), dtype=torch.float32)
 
     with torch.no_grad():
         logits, value = self.model(state)
