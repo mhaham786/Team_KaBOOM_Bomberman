@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
 try:
     import scienceplots
@@ -36,7 +37,11 @@ def plot_coin_distribution(metrics, ax):
 
 
 def plot_path_efficiency(metrics, ax):
-    metrics = [metric for metric in metrics if "path_efficiency" in metric]
+    metrics = [
+        metric
+        for metric in metrics
+        if np.isfinite(metric.get("path_efficiency", np.nan))
+    ]
     if not metrics:
         return
 
