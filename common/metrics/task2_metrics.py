@@ -22,14 +22,16 @@ class Task2Metrics(GeneralMetrics):
             self.successful_escapes += exploded
 
     def to_dict(self, episode, steps):
-        metric = super().to_dict(episode, steps)
+        metric = super().to_dict(episode, steps, coins)
         metric.update(
             {
                 "crates_destroyed": self.crates_destroyed,
                 "bombs_dropped": self.bombs_dropped,
                 "bombs_exploded": self.bombs_exploded,
+                "successful_escapes": self.successful_escapes,
                 "crates_per_bomb": self.crates_destroyed / max(1, self.bombs_dropped),
                 "escape_success_rate": self.successful_escapes / max(1, self.bombs_exploded),
+                "useful_bombs": self.useful_bombs,
                 "useless_bombs": self.useless_bombs,
             }
         )
