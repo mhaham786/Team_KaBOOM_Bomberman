@@ -13,10 +13,9 @@ from torch import nn
 import matplotlib.pyplot as plt
 import events as e
 import settings as s
-from ..common.metrics import EpisodeMetrics
+from ..common.metrics import Task1Metrics
 from ..common.features import advanced_features_oc31
 from ..common.helpers import (
-    bfs_first_step,
     bomb_positions,
     has_safe_bomb_escape,
     opponent_positions,
@@ -110,8 +109,8 @@ def setup_training(self):
     buffer for backward compatibility.
     """
     _require_callback_state(self)
-    self.device = torch.device("cuda")
-    self.metrics = EpisodeMetrics()
+    self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    self.metrics = Task1Metrics()
 
     torch.manual_seed(RANDOM_SEED)
     self.rng.seed(RANDOM_SEED)
@@ -168,22 +167,6 @@ def game_events_occurred(
     new_game_state: dict,
     events: List[str],
 ):
-    if getattr(self, "needs_new_target_distance", True):
-        field = np.asarray(old_game_state["field"])
-        position = tuple(old_game_state["self"][3])
-        coins = old_game_state.get("coins", ())
-        bombs = bomb_positions(old_game_state.get("bombs", ()))
-        opponents = opponent_positions(old_game_state.get("others", ()))
-
-        _, distance = bfs_first_step(field, position, coins, bombs, opponents)
-        if distance is not None:
-            self.current_target_distance = distance 
-        self.needs_new_target_distance = False
-
-    if e.COIN_COLLECTED in events:
-        if hasattr(self, "current_target_distance"):
-            self.cumulative_optimal_distance += self.current_target_distance
-        self.needs_new_target_distance = True
     """Record the newest transition pending and flush the previous one.
 
     BombeRLe can report a surviving final action here and then call
@@ -224,10 +207,6 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
         _insert_terminal_transition(self, last_game_state, last_action, events)
 
     self.completed_rounds += 1
-
-    if self.round_event_counts[e.COIN_COLLECTED] > 0:
-        efficiency = self.cumulative_optimal_distance / max(1, self.round_steps)
-        self.metrics.record_path_efficiency(efficiency)
 
     if hasattr(self, 'metrics'):
         metric_dict = self.metrics.to_dict(self.completed_rounds, self.round_steps)
@@ -457,7 +436,14 @@ def _insert_pending_transition(
         done,
         next_valid_mask,
     )
-    _after_transition(self, reward, event_reward, shaping_reward, events)
+    _after_transition(
+        self,
+        reward,
+        event_reward,
+        shaping_reward,
+        events,
+        pending["old_game_state"],
+    )
     loss = optimize_model(self)
     _record_loss(self, loss)
     return loss
@@ -488,7 +474,14 @@ def _insert_terminal_transition(
         True,
         terminal_mask,
     )
-    _after_transition(self, reward, event_reward, shaping_reward, event_list)
+    _after_transition(
+        self,
+        reward,
+        event_reward,
+        shaping_reward,
+        event_list,
+        last_game_state,
+    )
     loss = optimize_model(self)
     _record_loss(self, loss)
     return loss
@@ -586,6 +579,7 @@ def _after_transition(
     event_reward: float,
     shaping_reward: float,
     events: Iterable[str],
+    game_state: dict,
 ) -> None:
     """Update counters only after a transition is inserted into replay."""
     self.total_transitions += 1
@@ -595,7 +589,7 @@ def _after_transition(
     self.round_event_reward += float(event_reward)
     self.round_shaping_reward += float(shaping_reward)
     self.round_event_counts.update(events)
-    self.metrics.record_events(list(events), float(event_reward))
+    self.metrics.record_events(list(events), float(event_reward), game_state)
 
 
 def _record_loss(self, loss: Optional[float]) -> None:
@@ -615,8 +609,6 @@ def _reset_round_stats(self) -> None:
     self.round_shaping_reward = 0.0
     self.round_event_counts = Counter()
     self.round_losses = []
-    self.cumulative_optimal_distance = 0
-    self.needs_new_target_distance = True
     if hasattr(self, 'metrics'):
         self.metrics.reset()
 

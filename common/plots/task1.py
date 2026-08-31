@@ -45,6 +45,13 @@ def plot_path_efficiency(metrics, ax):
 
     if SHOW_RAW_VALUES:
         ax.scatter(episodes, path_efficiency, s=10, alpha=0.2, color="black")
+    ax.plot(
+        episodes,
+        running_average(path_efficiency, RUNNING_AVERAGE_WINDOW),
+        linewidth=2,
+        color="red",
+        label=f"{RUNNING_AVERAGE_WINDOW}-episode average",
+    )
     ax.set_xlabel("Training episode")
     ax.set_ylabel("Path efficiency")
     ax.set_title("Path efficiency per episode")

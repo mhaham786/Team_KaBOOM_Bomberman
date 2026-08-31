@@ -16,7 +16,14 @@ def setup(self):
     self.run = ExperimentRun(config.EXPERIMENT_NAME)
 
     if self.train:
-        if config.RESUME_TRAINING:
+        if config.RESUME_TRAINING and config.RESTART_EXPERIMENT:
+            raise ValueError(
+                "RESUME_TRAINING and RESTART_EXPERIMENT cannot both be True."
+            )
+        if config.RESTART_EXPERIMENT:
+            self.run.restart()
+            loaded = False
+        elif config.RESUME_TRAINING:
             loaded = self.run.load_latest(self.model, self.optimizer)
             if not loaded:
                 raise FileNotFoundError(
@@ -25,7 +32,8 @@ def setup(self):
         elif self.run.path.exists():
             raise FileExistsError(
                 f"Experiment {config.EXPERIMENT_NAME} already exists. "
-                "Use a new EXPERIMENT_NAME or set RESUME_TRAINING = True."
+                "Use a new EXPERIMENT_NAME, set RESUME_TRAINING = True, or "
+                "set RESTART_EXPERIMENT = True."
             )
         else:
             loaded = False

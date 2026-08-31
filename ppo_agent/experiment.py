@@ -1,4 +1,5 @@
 import json
+import shutil
 
 import torch
 
@@ -7,12 +8,18 @@ from . import config
 
 class ExperimentRun:
     def __init__(self, name):
+        if not name or name in {".", ".."} or "/" in name or "\\" in name:
+            raise ValueError("EXPERIMENT_NAME must be one directory name")
         self.name = name
         self.path = config.EXPERIMENTS_DIR / name
         self.latest_path = self.path / "latest.pt"
         self.metadata_path = self.path / "metadata.json"
         self.train_metrics_path = self.path / "train.jsonl"
         self.plots_path = self.path / "plots"
+
+    def restart(self):
+        if self.path.exists():
+            shutil.rmtree(self.path)
 
     def create(self, model):
         self.path.mkdir(parents=True, exist_ok=True)

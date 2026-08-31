@@ -1,16 +1,16 @@
 from . import config
 from .episode_buffer import EpisodeBuffer
-from ..common.metrics import EpisodeMetrics
+from ..common.metrics import Task1Metrics
 from .trainers import GAEPPOTrainer, PPOTrainer
 
 from ..common.rewards import *
 
 
 def setup_training(self):
-    self.trainer = GAEPPOTrainer(self.model, self.optimizer)
+    self.trainer = PPOTrainer(self.model, self.optimizer)
     self.run.create(self.model)
     self.buffer = EpisodeBuffer()
-    self.metrics = EpisodeMetrics()
+    self.metrics = Task1Metrics()
     self.episode, _ = self.run.get_progress()
 
 
@@ -21,14 +21,14 @@ def game_events_occurred(
         return
 
     reward = coin_heaven_rewards_ppo(events)
-    self.metrics.record_events(events, reward)
+    self.metrics.record_events(events, reward, old_game_state)
     self.buffer.finish(reward, False)
 
 
 def end_of_round(self, last_game_state, last_action, events):
     if self.buffer.pending:
         reward = coin_heaven_rewards_ppo(events)
-        self.metrics.record_events(events, reward)
+        self.metrics.record_events(events, reward, last_game_state)
         self.buffer.finish(reward, True)
     elif self.buffer.states:
         self.buffer.dones[-1] = True
