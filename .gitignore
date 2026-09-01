@@ -16,7 +16,4 @@ venv/
 
 # Training Logs
 logs/
-experiments/
-=======
 *.log
->>>>>>> 62f4f04 (ignored log files)

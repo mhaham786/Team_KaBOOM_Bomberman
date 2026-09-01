@@ -16,6 +16,36 @@ def coin_heaven_minimal_oc4(game_state):
     return [float(player_x), float(player_y), float(coin_x), float(coin_y)]
 
 
+def coin_heaven_bfs_oc9(game_state):
+    """Encode walkable moves and the BFS route to the nearest reachable coin.
+
+    Feature layout:
+        0-3: walkability of UP, RIGHT, DOWN, LEFT neighbour tiles.
+        4-7: first BFS direction toward the nearest reachable coin.
+        8: normalized BFS distance to that coin, or 1.0 when none is reachable.
+    """
+    if game_state is None:
+        return None
+
+    field = np.asarray(game_state["field"])
+    position = tuple(game_state["self"][3])
+    walkability = np.array(
+        [
+            is_walkable(add_position(position, delta), field)
+            for delta in MOVEMENTS
+        ],
+        dtype=np.float32,
+    )
+
+    direction, distance = bfs_first_step(
+        field,
+        position,
+        game_state.get("coins", ()),
+    )
+    route = direction_and_distance_features(direction, distance, field.shape)
+    return np.concatenate((walkability, route))
+
+
 def advanced_features_oc31(game_state):
     """Convert a game state into the advanced 31-value feature vector.
 
@@ -71,24 +101,24 @@ def advanced_features_oc31(game_state):
         occupied_by_bombs,
         opponents,
     )
-    write_direction_and_distance(
-        features, 10, 14, direction, distance, field.shape
+    features[10:15] = direction_and_distance_features(
+        direction, distance, field.shape
     )
 
     targets = crate_adjacent_targets(field, occupied_by_bombs, opponents)
     direction, distance = bfs_first_step(
         field, position, targets, occupied_by_bombs, opponents
     )
-    write_direction_and_distance(
-        features, 15, 19, direction, distance, field.shape
+    features[15:20] = direction_and_distance_features(
+        direction, distance, field.shape
     )
 
     targets = opponent_adjacent_targets(field, opponents, occupied_by_bombs)
     direction, distance = bfs_first_step(
         field, position, targets, occupied_by_bombs, opponents
     )
-    write_direction_and_distance(
-        features, 20, 24, direction, distance, field.shape
+    features[20:25] = direction_and_distance_features(
+        direction, distance, field.shape
     )
 
     features[25:29] = time_safe_escape_directions(

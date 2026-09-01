@@ -1,0 +1,25 @@
+{
+  "run_name": "baseline_ppo",
+  "description": "Simple PPO on taks 1 with simple 4 features. No optimization.",
+  "actions": [
+    "UP",
+    "RIGHT",
+    "DOWN",
+    "LEFT",
+    "WAIT"
+  ],
+  "config": {
+    "resume_training": false,
+    "restart_experiment": true,
+    "observation_count": 4,
+    "learning_rate": 0.0003,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip_epsilon": 0.1,
+    "value_coef": 0.5,
+    "entropy_coef": 0.005,
+    "update_epochs": 3,
+    "minibatch_size": 64
+  },
+  "model_structure": "ActorCritic(\n  (actor): Sequential(\n    (0): Linear(in_features=4, out_features=64, bias=True)\n    (1): ReLU()\n    (2): Linear(in_features=64, out_features=64, bias=True)\n    (3): ReLU()\n    (4): Linear(in_features=64, out_features=5, bias=True)\n  )\n  (critic): Sequential(\n    (0): Linear(in_features=4, out_features=64, bias=True)\n    (1): ReLU()\n    (2): Linear(in_features=64, out_features=64, bias=True)\n    (3): ReLU()\n    (4): Linear(in_features=64, out_features=1, bias=True)\n  )\n)"
+}

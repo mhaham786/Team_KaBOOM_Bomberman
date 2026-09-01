@@ -1,6 +1,6 @@
 import events as e
 
-from ..helpers import bfs_first_step, bomb_positions, opponent_positions
+from ..helpers import bfs_first_step
 from .general_metrics import GeneralMetrics
 
 
@@ -20,8 +20,6 @@ class Task1Metrics(GeneralMetrics):
                 field,
                 position,
                 game_state.get("coins", ()),
-                bomb_positions(game_state.get("bombs", ())),
-                opponent_positions(game_state.get("others", ())),
             )
             self.target_distance = distance
             self.needs_target_distance = False

@@ -1,161 +1,97 @@
-from collections import namedtuple, deque
+import json
 import pickle
-from typing import List
+from pathlib import Path
+
 import numpy as np
-import events as e
-from .callbacks import state_to_features, ACTIONS
 
-def reward_from_events(self, events: List[str]) -> int:
-    """
-    *This is not a required function, but an idea to structure your code.*
+from ..common.metrics import Task1Metrics
+from ..common.rewards import coin_heaven_rewards_sarsa
+from . import config
+from .callbacks import ACTIONS, state_to_features
 
-    Here you can modify the rewards your agent get so as to en/discourage
-    certain behavior.
-    """
-    game_rewards = {
-        e.COIN_COLLECTED: 100,
-        e.KILLED_SELF: -500,
-        e.WAITED: -1, 
-        e.INVALID_ACTION: -5 
-    }
-    
-    reward_sum = 0
-    for event in events:
-        if event in game_rewards:
-            reward_sum += game_rewards[event]
-            
-    self.logger.info(f"Awarded {reward_sum} for events {', '.join(events)}")
-    return reward_sum
+
+METRICS_PATH = Path(__file__).with_name("train.jsonl")
+
+
+def setup_training(self):
+    self.alpha = config.ALPHA
+    self.gamma = config.GAMMA
+    self.epsilon = config.EPSILON
+    self.epsilon_min = config.EPSILON_MIN
+    self.epsilon_decay = config.EPSILON_DECAY
+
+    self.next_action = None
+    self.episode = 0
+    self.current_steps = 0
+    self.metrics = Task1Metrics()
+    METRICS_PATH.write_text("")
+
 
 def get_action_for_state(self, state):
-    
     if state not in self.q_table:
         self.q_table[state] = dict.fromkeys(ACTIONS, 0.0)
-        
-    # Explore
+
     if np.random.rand() < self.epsilon:
         return np.random.choice(ACTIONS)
-    
-    # Exploit
-    actions = list(self.q_table[state].keys())
+
+    actions = list(self.q_table[state])
     q_values = list(self.q_table[state].values())
     return actions[np.argmax(q_values)]
 
 
-def setup_training(self):
+def game_events_occurred(
+    self, old_game_state, self_action, new_game_state, events
+):
+    state = state_to_features(old_game_state)
+    action = self_action
+    reward = coin_heaven_rewards_sarsa(events)
 
-    self.alpha = 0.1      # Learning rate
-    self.gamma = 0.9      # Discount factor
-    self.epsilon = 0.1    # Exploration rate      
-    self.epsilon_min = 0.0      
-    self.epsilon_decay = 0.998
-    
-    self.next_action = None
+    route = state[4:8]
+    if any(route):
+        path_action = ACTIONS[int(np.argmax(route))]
+        reward += 2 if action == path_action else -1
 
-# Master trackers for all rounds
-    self.stats_rewards = []
-    self.stats_steps = []
-    self.stats_events = [] 
+    next_state = state_to_features(new_game_state)
+    next_action = get_action_for_state(self, next_state)
+    self.next_action = next_action
 
-    self.current_reward = 0
-    self.current_steps = 0
-    
-    self.current_events = {
-        e.COIN_COLLECTED: 0,
-        e.INVALID_ACTION: 0,
-        e.WAITED: 0
-    }
+    if state not in self.q_table:
+        self.q_table[state] = dict.fromkeys(ACTIONS, 0.0)
 
+    old_q_value = self.q_table[state][action]
+    next_q_value = self.q_table[next_state][next_action]
+    self.q_table[state][action] = old_q_value + self.alpha * (
+        reward + self.gamma * next_q_value - old_q_value
+    )
 
-def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
-    
-    S = state_to_features(old_game_state)
-    A = self_action
-    R = reward_from_events(self, events)
-    
-    # REWARD SHAPING 
-    if S is not None:
-        compass_direction = S[0] 
-        
-        if compass_direction != 'WAIT':
-            if A == compass_direction:
-                R += 2  # followed the BFS compass
-            elif A != 'BOMB': 
-                R -= 1  # moved the wrong way
-    
-    self.current_reward += R
     self.current_steps += 1
-    
-
-    for event in events:
-        if event in self.current_events:
-            self.current_events[event] += 1
-
-    S_prime = state_to_features(new_game_state)
-    A_prime = get_action_for_state(self, S_prime)
-    self.next_action = A_prime 
-
-    if S not in self.q_table: 
-        self.q_table[S] = dict.fromkeys(ACTIONS, 0.0)
-
-    if S_prime not in self.q_table: 
-        self.q_table[S_prime] = dict.fromkeys(ACTIONS, 0.0)
-        
-    old_q_value = self.q_table[S][A]
-    next_q_value = self.q_table[S_prime][A_prime]
-    
-    new_q_value = old_q_value + self.alpha * (R + self.gamma * next_q_value - old_q_value)
-    self.q_table[S][A] = new_q_value
+    self.metrics.record_events(events, reward, old_game_state)
 
 
-def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
-    """
-    Called at the end of each game or when the agent died to hand out final rewards.
-    This replaces game_events_occurred in this round.
-    """
-    self.logger.debug(f'Encountered event(s) {", ".join(map(repr, events))} in final step')
+def end_of_round(self, last_game_state, last_action, events):
+    state = state_to_features(last_game_state)
+    reward = coin_heaven_rewards_sarsa(events)
 
-    # FINAL SARSA MATH 
-    S = state_to_features(last_game_state)
-    A = last_action
-    R = reward_from_events(self, events)
-    
-    if S not in self.q_table:
-        self.q_table[S] = dict.fromkeys(ACTIONS, 0.0)
+    if state not in self.q_table:
+        self.q_table[state] = dict.fromkeys(ACTIONS, 0.0)
 
-    old_q_value = self.q_table[S][A]
-    # next_q_value is 0 because the game is over, there is no future state
-    new_q_value = old_q_value + self.alpha * (R + (self.gamma * 0.0) - old_q_value)
-    self.q_table[S][A] = new_q_value
+    old_q_value = self.q_table[state][last_action]
+    self.q_table[state][last_action] = old_q_value + self.alpha * (
+        reward - old_q_value
+    )
 
-    self.current_reward += R
     self.current_steps += 1
+    self.metrics.record_events(events, reward, last_game_state)
+    self.episode += 1
+    self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
 
+    metric = self.metrics.to_dict(self.episode, self.current_steps)
+    with METRICS_PATH.open("a") as file:
+        file.write(json.dumps(metric) + "\n")
 
-    # reduce epsilon
-    if self.epsilon > self.epsilon_min:
-        self.epsilon *= self.epsilon_decay
-
-    for event in events:
-        if event in self.current_events:
-            self.current_events[event] += 1
-    
     with open("my-saved-model.pt", "wb") as file:
         pickle.dump(self.q_table, file)
 
-    self.stats_rewards.append(self.current_reward)
-    self.stats_steps.append(self.current_steps)
-    self.stats_events.append(self.current_events.copy())
-    
-    # Reset for next round 
-    self.current_reward = 0
+    self.next_action = None
     self.current_steps = 0
-    self.current_events = {e.COIN_COLLECTED: 0, e.INVALID_ACTION: 0, e.WAITED: 0}
-
-
-    with open("training_stats.pkl", "wb") as file:
-        pickle.dump({
-            'rewards': self.stats_rewards, 
-            'steps': self.stats_steps,
-            'events': self.stats_events
-        }, file)
+    self.metrics.reset()

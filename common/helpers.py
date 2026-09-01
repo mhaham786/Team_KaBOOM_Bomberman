@@ -90,7 +90,7 @@ def in_bounds(position, shape):
     return 0 <= x < shape[0] and 0 <= y < shape[1]
 
 
-def is_walkable(position, field, bombs, opponents):
+def is_walkable(position, field, bombs=(), opponents=()):
     """Return whether movement can enter a position."""
     return (
         in_bounds(position, field.shape)
@@ -297,7 +297,7 @@ def is_safe_at_time(position, time, hazard):
     return position not in hazard["danger_by_time"].get(time, set())
 
 
-def bfs_first_step(field, start, targets, bombs, opponents):
+def bfs_first_step(field, start, targets, bombs=(), opponents=()):
     """Return the first direction and distance to the nearest reachable target."""
     targets = {
         tuple(target)
@@ -328,13 +328,13 @@ def bfs_first_step(field, start, targets, bombs, opponents):
     return None, None
 
 
-def write_direction_and_distance(
-    features, direction_start, distance_index, direction, distance, board_shape
-):
-    """Write a direction and normalized distance into a feature array."""
+def direction_and_distance_features(direction, distance, board_shape):
+    """Encode a direction and normalized distance as five values."""
+    features = np.zeros(5, dtype=np.float32)
     if direction is not None:
-        features[direction_start + direction] = 1.0
-    features[distance_index] = normalize_distance(distance, board_shape)
+        features[direction] = 1.0
+    features[4] = normalize_distance(distance, board_shape)
+    return features
 
 
 def normalize_distance(distance, board_shape):

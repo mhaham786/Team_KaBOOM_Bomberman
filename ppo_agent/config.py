@@ -7,13 +7,13 @@ EXPERIMENTS_DIR = AGENT_DIR / "experiments"
 
 ACTIONS = ("UP", "RIGHT", "DOWN", "LEFT", "WAIT")
 
-EXPERIMENT_NAME = "baseline_ppo"
-DESCRIPTION = "Simple PPO on taks 1 with simple 4 features. No optimization."
+EXPERIMENT_NAME = "<EXP_NAME>"
+DESCRIPTION = "<DES>"
 
 RESUME_TRAINING = False
 RESTART_EXPERIMENT = True
 
-OBSERVATION_COUNT = 4
+OBSERVATION_COUNT = 9
 
 LEARNING_RATE = 3e-4
 GAMMA = 0.99
