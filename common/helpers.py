@@ -74,9 +74,28 @@ def bomb_positions(bombs):
     return {tuple(position) for position, _ in bombs}
 
 
+def exploding_opponent_bombs(bombs, own_bomb_positions):
+    """Return opponent bomb positions that are about to explode."""
+    return [
+        tuple(position)
+        for position, timer in bombs
+        if tuple(position) not in own_bomb_positions and timer <= 0
+    ]
+
+
 def opponent_positions(others):
     """Return the occupied coordinates from opponent tuples."""
     return {tuple(position) for _, _, _, position in others}
+
+
+def nearest_opponent_distance(position, opponents):
+    """Return the Manhattan distance to the nearest opponent, or None."""
+    if not opponents:
+        return None
+    return min(
+        abs(position[0] - opponent[0]) + abs(position[1] - opponent[1])
+        for opponent in opponents
+    )
 
 
 def add_position(position, delta):
@@ -378,3 +397,14 @@ def bomb_effects_from(origin, field, opponents):
         if field[tile] == 1:
             destroyed_crates += 1
     return destroyed_crates, opponent_hit
+
+
+def safe_adjacent_tile_count(field, opponent, blast, bombs, other_opponents):
+    """Return adjacent free tiles outside a newly placed bomb's blast."""
+    return sum(
+        neighbour not in blast
+        and is_walkable(neighbour, field, bombs, other_opponents)
+        for neighbour in (
+            add_position(opponent, movement) for movement in MOVEMENTS
+        )
+    )

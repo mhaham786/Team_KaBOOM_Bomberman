@@ -6,7 +6,13 @@ class GeneralMetrics:
     def __init__(self):
         self.reset()
 
-    def record_events(self, events, reward, game_state=None):
+    def record_events(
+        self,
+        events,
+        reward,
+        old_game_state=None,
+        new_game_state=None,
+    ):
         self.reward += reward
         self.coins += events.count(e.COIN_COLLECTED)
         self.invalid_moves += events.count(e.INVALID_ACTION)

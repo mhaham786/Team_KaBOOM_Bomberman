@@ -6,10 +6,16 @@ from .general_metrics import GeneralMetrics
 
 class Task1Metrics(GeneralMetrics):
 
-    def record_events(self, events, reward, game_state=None):
-        super().record_events(events, reward, game_state)
-        if game_state is not None:
-            self.record_path_progress(game_state, events)
+    def record_events(
+        self,
+        events,
+        reward,
+        old_game_state=None,
+        new_game_state=None,
+    ):
+        super().record_events(events, reward, old_game_state, new_game_state)
+        if old_game_state is not None:
+            self.record_path_progress(old_game_state, events)
 
     def record_path_progress(self, game_state, events):
         self.path_tracking = True

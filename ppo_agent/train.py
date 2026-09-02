@@ -21,7 +21,7 @@ def game_events_occurred(
         return
 
     reward = coin_heaven_rewards_ppo_improved(events)
-    self.metrics.record_events(events, reward, old_game_state)
+    self.metrics.record_events(events, reward, old_game_state, new_game_state)
     self.buffer.finish(reward, False)
 
 

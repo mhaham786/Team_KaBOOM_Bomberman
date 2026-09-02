@@ -5,8 +5,14 @@ from .general_metrics import GeneralMetrics
 
 class Task2Metrics(GeneralMetrics):
 
-    def record_events(self, events, reward, game_state=None):
-        super().record_events(events, reward, game_state)
+    def record_events(
+        self,
+        events,
+        reward,
+        old_game_state=None,
+        new_game_state=None,
+    ):
+        super().record_events(events, reward, old_game_state, new_game_state)
         self.crates_destroyed += events.count(e.CRATE_DESTROYED)
         self.bombs_dropped += events.count(e.BOMB_DROPPED)
 

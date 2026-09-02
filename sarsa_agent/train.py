@@ -65,7 +65,7 @@ def game_events_occurred(
     )
 
     self.current_steps += 1
-    self.metrics.record_events(events, reward, old_game_state)
+    self.metrics.record_events(events, reward, old_game_state, new_game_state)
 
 
 def end_of_round(self, last_game_state, last_action, events):

@@ -378,6 +378,7 @@ def _make_pending_transition(
         "action": action,
         "state": old_features,
         "old_game_state": old_game_state,
+        "new_game_state": new_game_state,
         "action_index": action_to_index(action),
         "next_state": new_features,
         "next_valid_mask": valid_action_mask(
@@ -443,6 +444,7 @@ def _insert_pending_transition(
         shaping_reward,
         events,
         pending["old_game_state"],
+        pending["new_game_state"],
     )
     loss = optimize_model(self)
     _record_loss(self, loss)
@@ -579,7 +581,8 @@ def _after_transition(
     event_reward: float,
     shaping_reward: float,
     events: Iterable[str],
-    game_state: dict,
+    old_game_state: dict,
+    new_game_state: Optional[dict] = None,
 ) -> None:
     """Update counters only after a transition is inserted into replay."""
     self.total_transitions += 1
@@ -589,7 +592,12 @@ def _after_transition(
     self.round_event_reward += float(event_reward)
     self.round_shaping_reward += float(shaping_reward)
     self.round_event_counts.update(events)
-    self.metrics.record_events(list(events), float(event_reward), game_state)
+    self.metrics.record_events(
+        list(events),
+        float(event_reward),
+        old_game_state,
+        new_game_state,
+    )
 
 
 def _record_loss(self, loss: Optional[float]) -> None:
