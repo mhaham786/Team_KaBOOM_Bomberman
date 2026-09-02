@@ -8,10 +8,21 @@ from ..common.rewards import *
 
 def setup_training(self):
     self.trainer = PPOTrainer(self.model, self.optimizer)
-    self.run.create(self.model)
+    self.run.create(
+        {
+            "description": getattr(config, "DESCRIPTION", ""),
+            "actions": list(config.ACTIONS),
+            "config": {
+                name.lower(): value
+                for name, value in vars(config).items()
+                if name.isupper() and isinstance(value, int | float)
+            },
+            "model_structure": str(self.model),
+        }
+    )
     self.buffer = EpisodeBuffer()
     self.metrics = Task1Metrics()
-    self.episode, _ = self.run.get_progress()
+    self.episode = self.run.get_progress()
 
 
 def game_events_occurred(
@@ -39,7 +50,12 @@ def end_of_round(self, last_game_state, last_action, events):
     self.episode += 1
     metric = self.metrics.to_dict(self.episode, len(self.buffer))
 
-    self.run.save_latest(self.model, self.optimizer)
+    self.run.save_latest(
+        {
+            "model_state": self.model.state_dict(),
+            "optimizer_state": self.optimizer.state_dict(),
+        }
+    )
     self.run.append_train_metric(metric)
 
     self.buffer.reset()

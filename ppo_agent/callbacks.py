@@ -3,17 +3,16 @@ from time import perf_counter
 import torch
 from torch.distributions import Categorical
 
-from . import config
-from .experiment import ExperimentRun
-from .model import ActorCritic
-
+from ..common.experiment import ExperimentRun
 from ..common.features import *
+from . import config
+from .model import ActorCritic
 
 
 def setup(self):
     self.model = ActorCritic(config.OBSERVATION_COUNT, len(config.ACTIONS))
     self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.LEARNING_RATE)
-    self.run = ExperimentRun(config.EXPERIMENT_NAME)
+    self.run = ExperimentRun(config.EXPERIMENTS_DIR, config.EXPERIMENT_NAME)
 
     if self.train:
         if config.RESUME_TRAINING and config.RESTART_EXPERIMENT:
@@ -22,10 +21,10 @@ def setup(self):
             )
         if config.RESTART_EXPERIMENT:
             self.run.restart()
-            loaded = False
+            checkpoint = None
         elif config.RESUME_TRAINING:
-            loaded = self.run.load_latest(self.model, self.optimizer)
-            if not loaded:
+            checkpoint = self.run.load_latest()
+            if checkpoint is None:
                 raise FileNotFoundError(
                     f"Cannot resume {config.EXPERIMENT_NAME}: latest.pt does not exist."
                 )
@@ -36,18 +35,18 @@ def setup(self):
                 "set RESTART_EXPERIMENT = True."
             )
         else:
-            loaded = False
+            checkpoint = None
         self.model.train()
-        checkpoint_name = "latest.pt"
     else:
-        loaded = self.run.load_latest(self.model, self.optimizer)
+        checkpoint = self.run.load_latest()
         self.model.eval()
-        checkpoint_name = "latest.pt"
 
-    if loaded:
-        self.logger.info("Loaded %s from experiment %s.", checkpoint_name, config.EXPERIMENT_NAME)
+    if checkpoint is not None:
+        self.model.load_state_dict(checkpoint["model_state"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state"])
+        self.logger.info("Loaded latest.pt from experiment %s.", config.EXPERIMENT_NAME)
     else:
-        self.logger.info("No %s found for experiment %s.", checkpoint_name, config.EXPERIMENT_NAME)
+        self.logger.info("No latest.pt found for experiment %s.", config.EXPERIMENT_NAME)
 
 
 def act(self, game_state):
