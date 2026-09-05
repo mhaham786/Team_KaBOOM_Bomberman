@@ -6,7 +6,7 @@ try:
 except ModuleNotFoundError:
     scienceplots = None
 
-from helpers import running_average
+from .helpers import running_average
 
 
 # ----------
@@ -102,19 +102,58 @@ def plot_escape(metrics, ax):
 
 
 def plot_coins_found(metrics, ax): 
+    episodes = [metric["episode"] for metric in metrics]
     coins = [metric["coins"] for metric in metrics]
 
     if not coins:
         return
 
     if SHOW_RAW_VALUES:
-        ax.hist(coins, bins=np.arange(-0.5, TOTAL_COINS + 1.5, 1), color="blanchedalmond", edgecolor="black", alpha=0.7)
+        ax.scatter(episodes, coins, s=10, alpha=0.2, color="black")
 
-    ax.set_xlabel("Number of coins found")
-    ax.set_ylabel("Frequency")
-    ax.set_title("Distribution of coins found")
-    ax.set_xticks(range(TOTAL_COINS + 1))
+    coin_line = ax.plot(
+        episodes,
+        running_average(coins, RUNNING_AVERAGE_WINDOW),
+        linewidth=2,
+        color="blue",
+        label=f"coins - {RUNNING_AVERAGE_WINDOW}-episode average",
+    )[0]
+
+    ax.set_xlabel("Training episode")
+    ax.set_ylabel("Coins collected")
+    ax.set_title("Coins collected and ninth-coin completion time")
+    ax.set_yticks(range(TOTAL_COINS + 1))
+    ax.set_ylim(-0.25, TOTAL_COINS + 0.25)
     ax.grid(True, alpha=0.3)
+
+    completed = [
+        (metric["episode"], metric["steps_to_nine_coins"])
+        for metric in metrics
+        if "steps_to_nine_coins" in metric
+    ]
+    if not completed:
+        ax.legend(handles=[coin_line])
+        return
+
+    completion_episodes, completion_steps = zip(*completed)
+    speed_ax = ax.twinx()
+    if SHOW_RAW_VALUES:
+        speed_ax.scatter(
+            completion_episodes,
+            completion_steps,
+            s=10,
+            alpha=0.2,
+            color="red",
+        )
+    speed_line = speed_ax.plot(
+        completion_episodes,
+        running_average(completion_steps, RUNNING_AVERAGE_WINDOW),
+        linewidth=2,
+        color="red",
+        label=f"steps to 9 coins - {RUNNING_AVERAGE_WINDOW}-completion average",
+    )[0]
+    speed_ax.set_ylabel("Steps to collect nine coins")
+    ax.legend(handles=[coin_line, speed_line])
 
 
 def create_figure_task2(metric):

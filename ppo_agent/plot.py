@@ -3,7 +3,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-from ..common.plots import general_plot, task1
+from ..common.plots import general_plot, task1, task2
 from ..common.plots.helpers import load_metrics
 from . import config
 
@@ -33,6 +33,8 @@ def metrics_path_from_args(args):
 def create_task_figure(metrics, task):
     if task == 1:
         return task1.create_figure_task1(metrics), "task1_metrics.png"
+    if task == 2:
+        return task2.create_figure_task2(metrics), "task2_metrics.png"
     return None
 
 

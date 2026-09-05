@@ -1,0 +1,35 @@
+{
+  "run_name": "pretrained_dqn_t2",
+  "description": "Using weight from t1 and and features.",
+  "actions": [
+    "UP",
+    "RIGHT",
+    "DOWN",
+    "LEFT",
+    "WAIT",
+    "BOMB"
+  ],
+  "config": {
+    "experiment_name": "pretrained_dqn_t2",
+    "description": "Using weight from t1 and and features.",
+    "resume_training": false,
+    "restart_experiment": true,
+    "initial_weights_experiment": "optimized_dqn_t1",
+    "observation_count": 31,
+    "gamma": 0.99,
+    "learning_rate": 0.0001,
+    "target_update_interval": 1000,
+    "epsilon_start": 0.5,
+    "epsilon_end": 0.001,
+    "epsilon_decay_steps": 20000,
+    "gradient_clip_norm": 10.0,
+    "random_seed": 42,
+    "batch_size": 64,
+    "replay_capacity": 50000,
+    "min_replay_size": 1000,
+    "collect_only": false,
+    "train_every": 1,
+    "save_every_rounds": 25
+  },
+  "model_structure": "DQN(\n  (network): Sequential(\n    (0): Linear(in_features=31, out_features=128, bias=True)\n    (1): ReLU()\n    (2): Linear(in_features=128, out_features=128, bias=True)\n    (3): ReLU()\n    (4): Linear(in_features=128, out_features=6, bias=True)\n  )\n)"
+}
