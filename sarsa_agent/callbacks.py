@@ -7,13 +7,15 @@ from time import perf_counter
 
 import numpy as np
 
-from ..common.features import coin_heaven_bfs_oc9
+from ..common.features import coin_heaven_bfs_oc9, sarsa_task2_features
 from . import config
 
-
+REINITIALIZE_Q_TABLE = True
 ACTIONS = ["UP", "RIGHT", "DOWN", "LEFT", "WAIT", "BOMB"]
-MODEL_FILENAME = "sarsa_model_task1.pt"
-MODEL_PATH = Path(__file__).with_name(MODEL_FILENAME)
+LOAD_MODEL_FILENAME = "sarsa_model_task_a12.pt"
+SAVE_MODEL_FILENAME = "sarsa_model_task_a12.pt"
+LOAD_PATH = Path(__file__).with_name(LOAD_MODEL_FILENAME)
+MODEL_PATH = Path(__file__).with_name(SAVE_MODEL_FILENAME)
 TIMING_PATH_ENV = "SARSA_DECISION_TIMING_PATH"
 
 
@@ -26,25 +28,25 @@ def setup(self):
     if self.timing_path:
         atexit.register(_write_decision_summary, self)
 
-    if self.train:
+    if self.train and REINITIALIZE_Q_TABLE:
         self.logger.info("Setting up Q-table from scratch.")
         self.q_table = {}
         return
-    if not MODEL_PATH.is_file():
-        raise FileNotFoundError(f"SARSA model not found: {MODEL_PATH}")
+    if not LOAD_PATH.is_file():
+        raise FileNotFoundError(f"SARSA model not found: {LOAD_PATH}")
 
     self.logger.info("Loading Q-table from saved state.")
     try:
-        with MODEL_PATH.open("rb") as file:
+        with LOAD_PATH.open("rb") as file:
             self.q_table = pickle.load(file)
     except (OSError, pickle.PickleError, EOFError) as error:
-        raise RuntimeError(f"Failed to load SARSA model: {MODEL_PATH}") from error
+        raise RuntimeError(f"Failed to load SARSA model: {LOAD_PATH}") from error
     if not isinstance(self.q_table, dict):
-        raise RuntimeError(f"Invalid SARSA model data: {MODEL_PATH}")
+        raise RuntimeError(f"Invalid SARSA model data: {LOAD_PATH}")
 
 
 def state_to_features(game_state):
-    features = coin_heaven_bfs_oc9(game_state)
+    features = sarsa_task2_features(game_state)
     return None if features is None else tuple(features)
 
 def available_actions(game_state, state=None):

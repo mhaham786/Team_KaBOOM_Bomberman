@@ -1,0 +1,46 @@
+
+import sys
+import os
+
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from common.plots.general_plot import create_figure
+from common.plots.task2 import create_figure_task2
+import json
+from pathlib import Path
+import matplotlib.pyplot as plt
+
+def load_metrics(filepath):
+    """Reads the JSON Lines file generated during training."""
+    metrics = []
+    path = Path(filepath)
+    if not path.is_file():
+        print(f"No metrics file found at {filepath}")
+        return metrics
+        
+    with path.open("r") as file:
+        for line in file:
+            if line.strip():
+                metrics.append(json.loads(line))
+    return metrics
+
+if __name__ == "__main__":
+
+    output_dir = Path("training_plots")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+
+    metrics_data = load_metrics("train.jsonl")
+    
+    if metrics_data:
+        fig_general = create_figure(metrics_data)
+        general_save_path = output_dir / "general_metrics.png"
+        fig_general.savefig(general_save_path, dpi=300)
+        
+        fig_task2 = create_figure_task2(metrics_data)
+        task2_save_path = output_dir / "task2_metrics.png"
+        fig_task2.savefig(task2_save_path, dpi=300)
+        
+        print(f"Plots successfully saved to: {output_dir.resolve()}")
+        
+        plt.show()
