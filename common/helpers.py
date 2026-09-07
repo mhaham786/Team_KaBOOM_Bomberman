@@ -52,6 +52,19 @@ def valid_action_mask(field, position, bombs_left, bombs, opponents):
     return mask
 
 
+def action_mask(game_state):
+    """Return the valid actions for a game state."""
+    field = np.asarray(game_state["field"])
+    _, _, bombs_left, position = game_state["self"]
+    return valid_action_mask(
+        field,
+        tuple(position),
+        bombs_left,
+        bomb_positions(game_state.get("bombs", ())),
+        opponent_positions(game_state.get("others", ())),
+    )
+
+
 def has_safe_bomb_escape(field, position, bombs, opponents, explosion_map, max_steps):
     """Return whether placing a bomb leaves a time-safe escape path."""
     if not isinstance(max_steps, int) or isinstance(max_steps, bool) or max_steps <= 0:
@@ -95,6 +108,41 @@ def nearest_opponent_distance(position, opponents):
     return min(
         abs(position[0] - opponent[0]) + abs(position[1] - opponent[1])
         for opponent in opponents
+    )
+
+
+def nearest_position(position, targets):
+    """Return the position with the smallest Manhattan distance, or None."""
+    targets = [tuple(target) for target in targets]
+    if not targets:
+        return None
+    return min(
+        targets,
+        key=lambda target: abs(target[0] - position[0])
+        + abs(target[1] - position[1]),
+    )
+
+
+def relative_position(position, target, board_shape):
+    """Return normalized signed dx and dy to a target, or zeros."""
+    if target is None:
+        return np.zeros(2, dtype=np.float32)
+    return np.array(
+        [
+            (target[0] - position[0]) / max(1, board_shape[0] - 1),
+            (target[1] - position[1]) / max(1, board_shape[1] - 1),
+        ],
+        dtype=np.float32,
+    )
+
+
+def nearest_bomb(position, bombs):
+    """Return the nearest bomb and its timer by Manhattan distance, or None."""
+    return min(
+        bombs,
+        key=lambda bomb: abs(bomb[0][0] - position[0])
+        + abs(bomb[0][1] - position[1]),
+        default=None,
     )
 
 
@@ -345,6 +393,39 @@ def bfs_first_step(field, start, targets, bombs=(), opponents=()):
             visited.add(neighbour)
             queue.append((neighbour, direction, distance + 1))
     return None, None
+
+
+def efficient_crate_bombing_target_bfs(field, start, bombs=()):
+    """Return the route maximizing crates destroyed per travel distance."""
+    if not in_bounds(start, field.shape):
+        return None, None
+
+    queue = deque([(start, None, 0)])
+    visited = {start}
+    best_direction = None
+    best_distance = None
+    best_score = (0.0, 0)
+
+    while queue:
+        position, first_direction, distance = queue.popleft()
+        crates, _ = bomb_effects_from(position, field, ())
+        score = (crates / (distance + 1), crates)
+        if score > best_score:
+            best_direction = first_direction
+            best_distance = distance
+            best_score = score
+
+        for index, delta in enumerate(MOVEMENTS):
+            neighbour = add_position(position, delta)
+            if neighbour in visited or not is_walkable(
+                neighbour, field, bombs
+            ):
+                continue
+            direction = index if first_direction is None else first_direction
+            visited.add(neighbour)
+            queue.append((neighbour, direction, distance + 1))
+
+    return best_direction, best_distance
 
 
 def direction_and_distance_features(direction, distance, board_shape):

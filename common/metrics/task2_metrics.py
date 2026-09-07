@@ -12,9 +12,17 @@ class Task2Metrics(GeneralMetrics):
         old_game_state=None,
         new_game_state=None,
     ):
+        coins_before = self.coins
         super().record_events(events, reward, old_game_state, new_game_state)
         self.crates_destroyed += events.count(e.CRATE_DESTROYED)
         self.bombs_dropped += events.count(e.BOMB_DROPPED)
+
+        if (
+            self.steps_to_nine_coins is None
+            and coins_before < 9 <= self.coins
+            and old_game_state is not None
+        ):
+            self.steps_to_nine_coins = old_game_state["step"]
 
         exploded = events.count(e.BOMB_EXPLODED)
         if not exploded:
@@ -41,6 +49,8 @@ class Task2Metrics(GeneralMetrics):
                 "useless_bombs": self.useless_bombs,
             }
         )
+        if self.steps_to_nine_coins is not None:
+            metric["steps_to_nine_coins"] = self.steps_to_nine_coins
         return metric
 
     def reset(self):
@@ -51,3 +61,4 @@ class Task2Metrics(GeneralMetrics):
         self.useful_bombs = 0
         self.useless_bombs = 0
         self.successful_escapes = 0
+        self.steps_to_nine_coins = None
