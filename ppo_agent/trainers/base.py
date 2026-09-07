@@ -1,5 +1,5 @@
 import torch
-from torch.distributions import Categorical
+from ..model import action_distribution
 
 
 class TrainerBase:
@@ -14,6 +14,7 @@ class TrainerBase:
         actions = torch.tensor(buffer.actions, dtype=torch.long)
         old_log_probs = torch.tensor(buffer.log_probs, dtype=torch.float32)
         old_values = torch.tensor(buffer.values, dtype=torch.float32)
+        masks = None if all(mask is None for mask in buffer.masks) else torch.stack(buffer.masks)
 
         advantages, returns = self.compute_advantages(
             buffer.rewards, buffer.dones, old_values
@@ -31,14 +32,15 @@ class TrainerBase:
                     old_log_probs[batch],
                     advantages[batch],
                     returns[batch],
+                    None if masks is None else masks[batch],
                 )
 
-    def update_minibatch(self, states, actions, old_log_probs, advantages, returns):
+    def update_minibatch(self, states, actions, old_log_probs, advantages, returns, masks=None):
         from .. import config
 
         logits, values = self.model(states)
         values = values.squeeze(-1)
-        distribution = Categorical(logits=logits)
+        distribution = action_distribution(logits, masks)
         new_log_probs = distribution.log_prob(actions)
         entropy = distribution.entropy().mean()
 
