@@ -6,7 +6,7 @@ try:
 except ModuleNotFoundError:
     scienceplots = None
 
-from helpers import running_average
+from .helpers import running_average
 
 
 # ----------
