@@ -23,6 +23,13 @@ class Task4Metrics(Task2Metrics):
 
         step = old_game_state["step"]
 
+        self.record_eliminations(
+            old_game_state,
+            new_game_state,
+            events,
+            step,
+        )
+
         if self.first_elimination_step is None and e.KILLED_OPPONENT in events:
             self.first_elimination_step = step
 
@@ -40,6 +47,42 @@ class Task4Metrics(Task2Metrics):
                 + 5 * events.count(e.KILLED_OPPONENT)
             )
 
+    def record_eliminations(
+        self,
+        old_game_state,
+        new_game_state,
+        events,
+        step,
+    ):
+        """Remember when each observable agent disappeared from the field."""
+        old_agents = {
+            old_game_state["self"][0],
+            *(agent[0] for agent in old_game_state.get("others", ())),
+        }
+        new_agents = set()
+        if new_game_state is not None:
+            new_agents = {
+                new_game_state["self"][0],
+                *(agent[0] for agent in new_game_state.get("others", ())),
+            }
+
+        eliminated = (
+            old_agents - new_agents
+            if new_game_state is not None
+            else set()
+        )
+        if e.GOT_KILLED in events:
+            eliminated.add(old_game_state["self"][0])
+
+        for name in eliminated:
+            self.death_steps.setdefault(name, step)
+
+        if eliminated and self.round_first_elimination_step is None:
+            self.round_first_elimination_step = step
+            self.first_eliminated_agents = set(eliminated)
+        elif step == self.round_first_elimination_step:
+            self.first_eliminated_agents.update(eliminated)
+
     def record_scores(self, game_state):
         """Remember the latest visible score for every agent."""
         if game_state is None:
@@ -55,15 +98,33 @@ class Task4Metrics(Task2Metrics):
         metric = super().to_dict(episode, steps)
         deaths = int(self.killed)
         suicides = int(self.suicide)
-        winner = (
-            max(self.scores, key=lambda name: (self.scores[name], name))
-            if self.scores
-            else None
-        )
+        best_score = max(self.scores.values()) if self.scores else None
+        leaders = {
+            name
+            for name, score in self.scores.items()
+            if score == best_score
+        }
+        draw = len(leaders) > 1
+        agent_metrics = {}
+        for name, score in self.scores.items():
+            death_step = self.death_steps.get(name)
+            agent_metrics[name] = {
+                "won": name in leaders and not draw,
+                "draw": name in leaders and draw,
+                "score": score,
+                "deaths": int(death_step is not None),
+                "steps_survived": death_step if death_step is not None else steps,
+                "survived_first_50_steps": death_step is None or death_step > 50,
+                "survived_first_100_steps": death_step is None or death_step > 100,
+                "eliminated_at_step": death_step,
+                "first_eliminated": name in self.first_eliminated_agents,
+            }
 
         metric.update(
             {
-                "won": self.agent_name is not None and self.agent_name == winner,
+                "agent_scores": dict(self.scores),
+                "agent_metrics": agent_metrics,
+                "won": self.agent_name in leaders and not draw,
                 "deaths": deaths,
                 "suicides": suicides,
                 "kill_death_ratio": self.kills / max(1, deaths),
@@ -75,6 +136,11 @@ class Task4Metrics(Task2Metrics):
                 or self.death_step > 100,
             }
         )
+        if self.round_first_elimination_step is not None:
+            metric["first_elimination_step"] = self.round_first_elimination_step
+            metric["first_eliminated_agents"] = sorted(
+                self.first_eliminated_agents
+            )
         if self.first_elimination_step is not None:
             metric["steps_to_first_elimination"] = self.first_elimination_step
         if self.fifth_coin_step is not None:
@@ -85,6 +151,9 @@ class Task4Metrics(Task2Metrics):
         super().reset()
         self.agent_name = None
         self.scores = {}
+        self.death_steps = {}
+        self.round_first_elimination_step = None
+        self.first_eliminated_agents = set()
         self.death_step = None
         self.first_elimination_step = None
         self.fifth_coin_step = None
