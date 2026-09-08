@@ -52,7 +52,11 @@ class Task3Metrics(GeneralMetrics):
 
         self.offensive_bombs += 1
 
-        bombs = bomb_positions(new_game_state.get("bombs", ()))
+        if new_game_state is None:
+            bombs = bomb_positions(old_game_state.get("bombs", ()))
+            bombs.add(origin)
+        else:
+            bombs = bomb_positions(new_game_state.get("bombs", ()))
         safe_tiles = [
             safe_adjacent_tile_count(
                 field,
