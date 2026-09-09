@@ -25,49 +25,53 @@ SHOW_RAW_VALUES = True
 
 def plot_offensive_bombs_stats(metrics, ax):
     episodes = [metric["episode"] for metric in metrics]
-    offensive_bomb_ratio = [metric["offensive_bomb_ratio"] for metric in metrics]
-    offensive_bomb_kill_ratio = [metric["offensive_bomb_kill_ratio"] for metric in metrics]
-    offensive_bomb_suicide_ratio = [metric["offensive_bomb_suicide_ratio"] for metric in metrics]
-
+    
     if not episodes:
         return 
+        
+    offensive_bomb_ratio = running_average([metric["offensive_bomb_ratio"] for metric in metrics], RUNNING_AVERAGE_WINDOW)
+    offensive_bomb_kill_ratio = running_average([metric["offensive_bomb_kill_ratio"] for metric in metrics], RUNNING_AVERAGE_WINDOW)
+    offensive_bomb_suicide_ratio = running_average([metric["offensive_bomb_suicide_ratio"] for metric in metrics], RUNNING_AVERAGE_WINDOW)
 
+
+    ax.stackplot(episodes, offensive_bomb_kill_ratio, offensive_bomb_suicide_ratio,
+                 labels=['kill ratio of offensive bombs', 'suicide ratio of offensive bombs'],
+                 colors=['red', 'orange'], alpha=0.7)
     
-    ax.stackplot(episodes, offensive_bomb_ratio, offensive_bomb_kill_ratio, offensive_bomb_suicide_ratio,
-                 labels=['offensive bomb ratio', 'ratio of kills', 'ratio of suicides'],
-                 colors=['grey', 'red', 'yellow'], alpha=0.7)
+    ax.plot(episodes, offensive_bomb_ratio, color='grey', linewidth=2, label='offensive bomb ratio')
     
     ax.set_title('Agent bomb outcomes')
     ax.set_ylabel('ratio')
     ax.set_xlabel("Training Episode")
-    ax.legend(loc="upper left")    
+    ax.legend(loc="upper left")  
 
 
 
 def plot_opponent_bombs_stats(metrics, ax): 
     episodes = [metric["episode"] for metric in metrics]
+    
+    if not episodes:
+        return
+        
     killed_by_opponent_bomb = [metric["killed_by_opponent_bomb"] for metric in metrics]
     successful_opponent_bomb_escapes  = [metric["successful_opponent_bomb_escapes"] for metric in metrics]
 
-    if not episodes:
-        return
-
-    ax.scatter(episodes, killed_by_opponent_bomb, s=10, alpha=0.2, color='red', label="killed by opponent")
-    ax.scatter(episodes, successful_opponent_bomb_escapes, s=10, alpha=0.2, color="blue", label="successful escapes")
+    ax.scatter(episodes, killed_by_opponent_bomb, s=10, alpha=0.4, color='red', label="killed by opponent")
+    ax.scatter(episodes, successful_opponent_bomb_escapes, s=10, alpha=0.4, color="blue", label="successful escapes")
 
     ax.plot(
         episodes,
         running_average(killed_by_opponent_bomb, RUNNING_AVERAGE_WINDOW),
         linewidth=2,
         color="red",
-        label=f"{RUNNING_AVERAGE_WINDOW}-episode average",
+        label="Avg kills by opponent",
     )
     ax.plot(
         episodes,
         running_average(successful_opponent_bomb_escapes, RUNNING_AVERAGE_WINDOW),
         linewidth=2,
         color="blue",
-        label=f"{RUNNING_AVERAGE_WINDOW}-episode average",
+        label="Avg successful escapes from opponent",
     )
 
     ax.set_xlabel('Training Episode')   
@@ -78,12 +82,12 @@ def plot_opponent_bombs_stats(metrics, ax):
 
 def plot_hunting_behavior(metrics, ax): 
     episodes = [metric["episode"] for metric in metrics]
-    average_opponent_distance = [metric["average_opponent_distance"] for metric in metrics]
-    average_safe_adjacent_tiles = [metric["average_safe_adjacent_tiles"] for metric in metrics]
     
-
+    average_opponent_distance = running_average([metric["average_opponent_distance"] for metric in metrics], RUNNING_AVERAGE_WINDOW)
+    average_safe_adjacent_tiles = running_average([metric["average_safe_adjacent_tiles"] for metric in metrics], RUNNING_AVERAGE_WINDOW)
+    
     line1, = ax.plot(episodes, average_opponent_distance, color='red', label='Avg Opponent Distance')
-    line2, = ax.plot(episodes, average_safe_adjacent_tiles, color='green', linestyle='--', label='Avg Safe Escape Tiles')
+    line2, = ax.plot(episodes, average_safe_adjacent_tiles, color='green', linestyle='--', label='Opponent\'s Avg Safe Escape Tiles')
     ax.set_ylabel('Spatial Distance / Tile Count')
     ax.set_xlabel('Training Episode')
     
@@ -96,8 +100,9 @@ def plot_hunting_behavior(metrics, ax):
             valid_episodes.append(metric["episode"])
             valid_kills.append(steps)
             
+    plot = None
     if valid_kills: 
-        plot = ax.plot( valid_episodes, running_average(valid_kills, RUNNING_AVERAGE_WINDOW), linewidth=2, color="blue", label=f"steps to kill - {RUNNING_AVERAGE_WINDOW}-episode average" )
+        plot = ax2.plot(valid_episodes, running_average(valid_kills, RUNNING_AVERAGE_WINDOW), linewidth=2, color="blue", label=f"steps to kill - {RUNNING_AVERAGE_WINDOW}-episode average")
         
     ax2.set_ylabel('Steps to Kill')
     ax.set_title('Hunting Behavior & Trapping Efficiency')
@@ -110,13 +115,12 @@ def plot_hunting_behavior(metrics, ax):
 
 
 def plot_coin_stats(metrics, ax):
-
     episodes = [metric["episode"] for metric in metrics]
     if not episodes:
         return
 
-    agent_coins = np.array([metric.get("coins", 0) for metric in metrics])
-    opponent_coins = np.array([metric.get("opponent_coins", 0) for metric in metrics])
+    agent_coins = np.array(running_average([metric.get("coins", 0) for metric in metrics], RUNNING_AVERAGE_WINDOW))
+    opponent_coins = np.array(running_average([metric.get("opponent_coins", 0) for metric in metrics], RUNNING_AVERAGE_WINDOW))
     
     ax.plot(episodes, agent_coins, color='gold', label='Agent Coins', linewidth=2)
     ax.plot(episodes, opponent_coins, color='grey', label='Opponent Coins', linewidth=2)
@@ -135,9 +139,6 @@ def plot_coin_stats(metrics, ax):
     ax.legend(loc="upper left")
 
 
-
-
-
 def create_figure_task3(metric):
     if scienceplots:
         plt.style.use(["science", "no-latex"])
@@ -151,4 +152,3 @@ def create_figure_task3(metric):
 
     figure.tight_layout()
     return figure
-
