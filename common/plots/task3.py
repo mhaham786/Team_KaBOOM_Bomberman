@@ -1,13 +1,12 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 
 try:
     import scienceplots
 except ModuleNotFoundError:
     scienceplots = None
 
-from helpers import running_average
+from .helpers import running_average
 
 
 # ----------
@@ -92,6 +91,7 @@ def plot_hunting_behavior(metrics, ax):
     ax.set_xlabel('Training Episode')
     
     ax2 = ax.twinx()
+    kill_line = None
     valid_episodes = []
     valid_kills = []
     for metric in metrics:
@@ -100,15 +100,27 @@ def plot_hunting_behavior(metrics, ax):
             valid_episodes.append(metric["episode"])
             valid_kills.append(steps)
             
+<<<<<<< HEAD
     plot = None
     if valid_kills: 
         plot = ax2.plot(valid_episodes, running_average(valid_kills, RUNNING_AVERAGE_WINDOW), linewidth=2, color="blue", label=f"steps to kill - {RUNNING_AVERAGE_WINDOW}-episode average")
+=======
+    if valid_kills:
+        kill_line = ax2.plot(
+            valid_episodes,
+            running_average(valid_kills, RUNNING_AVERAGE_WINDOW),
+            linewidth=2,
+            color="blue",
+            label=f"steps to kill - {RUNNING_AVERAGE_WINDOW}-episode average",
+        )[0]
+>>>>>>> 8bf78fdd26b7f044223513bd4980a487896ffe90
         
     ax2.set_ylabel('Steps to Kill')
     ax.set_title('Hunting Behavior & Trapping Efficiency')
 
     handles = [line1, line2]
-    if plot: handles.append(plot[0])
+    if kill_line is not None:
+        handles.append(kill_line)
     labels = [h.get_label() for h in handles]
     ax.legend(handles, labels, loc="upper right")
 
@@ -151,4 +163,8 @@ def create_figure_task3(metric):
     plot_coin_stats(metric, ax4)
 
     figure.tight_layout()
+<<<<<<< HEAD
     return figure
+=======
+    return figure
+>>>>>>> 8bf78fdd26b7f044223513bd4980a487896ffe90
