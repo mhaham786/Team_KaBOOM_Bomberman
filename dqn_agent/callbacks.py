@@ -43,7 +43,7 @@ def setup(self):
 
 def act(self, game_state):
     start_time = perf_counter() if self.train else None
-    features = advanced_features_oc31(game_state)
+    features = classic_peace_improved_oc33(game_state)
     mask = action_mask(game_state)
 
     if self.train and self.rng.random() < self.epsilon:

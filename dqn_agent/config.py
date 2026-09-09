@@ -8,11 +8,11 @@ EXPERIMENTS_DIR = AGENT_DIR / "experiments"
 
 ACTIONS = ("UP", "RIGHT", "DOWN", "LEFT", "WAIT", "BOMB")
 
-EXPERIMENT_NAME = "pretrained_dqn_t2"
+EXPERIMENT_NAME = "optimized_dqn_t2"
 DESCRIPTION = "Improve Rewards, shaping v2, improved features v2, improved hyperparameters."
 
 RESUME_TRAINING = False
-RESTART_EXPERIMENT = True
+RESTART_EXPERIMENT = False
 INITIAL_WEIGHTS_EXPERIMENT = None
 
 OBSERVATION_COUNT = 33
