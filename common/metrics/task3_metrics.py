@@ -125,12 +125,14 @@ class Task3Metrics(GeneralMetrics):
 
     def to_dict(self, episode, steps):
         metric = super().to_dict(episode, steps)
+        offensive_bomb_ratio = self.offensive_bombs / max(
+            1, self.bombs_dropped
+        )
         metric.update(
             {
                 "bombs_dropped": self.bombs_dropped,
                 "offensive_bombs": self.offensive_bombs,
-                "offensive_bomb_ratio": self.offensive_bombs
-                / max(1, self.bombs_dropped),
+                "offensive_bomb_ratio": offensive_bomb_ratio,
                 "offensive_bomb_kills": self.offensive_bomb_kills,
                 "offensive_bomb_suicides": self.offensive_bomb_suicides,
                 "offensive_bomb_kill_ratio": self.offensive_bomb_kills
