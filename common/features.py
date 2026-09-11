@@ -349,6 +349,151 @@ def sarsa_task2_features(game_state):
     state_list = [current_danger] + escapes + valid_moves + target_route + [can_bomb, good_bomb_spot]
     return tuple(int(x) for x in state_list)
 
+
+def sarsa_task3_features_oc18(game_state):
+    """Extend the 15-value SARSA state with compact hunting information.
+
+    Feature layout:
+        0-14: sarsa_task2_features.
+        15: BFS opponent direction as 0=none or 1-4=UP, RIGHT, DOWN, LEFT.
+        16: whether the nearest reachable opponent is within six steps.
+        17: whether a bomb placed here would hit an opponent.
+    """
+    if game_state is None:
+        return None
+
+    features = list(sarsa_task2_features(game_state))
+    field = np.asarray(game_state["field"])
+    position = tuple(game_state["self"][3])
+    bombs = bomb_positions(game_state.get("bombs", ()))
+    opponents = opponent_positions(game_state.get("others", ()))
+
+    targets = opponent_adjacent_targets(field, opponents, bombs)
+    direction, distance = bfs_first_step(
+        field, position, targets, bombs, opponents
+    )
+    opponent_direction = 0 if direction is None else direction + 1
+    opponent_distance = None if distance is None else distance + 1
+    opponent_nearby = (
+        opponent_distance is not None
+        and opponent_distance <= 2 * BOMB_POWER
+    )
+    opponent_in_blast = bool(opponents & set(blast_tiles(position, field)))
+
+    features.extend(
+        (
+            opponent_direction,
+            int(opponent_nearby),
+            int(opponent_in_blast),
+        )
+    )
+    return tuple(features)
+
+
+def sarsa_task3_features_oc10(game_state):
+    """Encode compact navigation, bomb safety, and nearby combat guidance.
+
+    Feature layout:
+        0: whether the current position is dangerous.
+        1-4: safe movement in UP, RIGHT, DOWN, LEFT.
+        5-8: route toward a nearby opponent, coin, or crate.
+        9: whether placing a bomb here is useful and leaves a safe escape.
+    """
+    if game_state is None:
+        return None
+
+    field = np.asarray(game_state["field"])
+    _, _, bombs_left, position = game_state["self"]
+    position = tuple(position)
+    bombs = game_state.get("bombs", ())
+    occupied_by_bombs = bomb_positions(bombs)
+    opponents = opponent_positions(game_state.get("others", ()))
+
+    danger_map = build_danger_map(
+        field,
+        bombs,
+        game_state.get("explosion_map"),
+    )
+    current_danger = int(danger_at(danger_map, position) > 0)
+
+    if current_danger:
+        safe_moves = time_safe_escape_directions(
+            field,
+            position,
+            bombs_left,
+            bombs,
+            opponents,
+            game_state.get("explosion_map"),
+        )
+        return tuple([current_danger, *map(int, safe_moves), 0, 0, 0, 0, 0])
+
+    neighbours = [add_position(position, movement) for movement in MOVEMENTS]
+    safe_moves = [
+        int(
+            is_walkable(tile, field, occupied_by_bombs, opponents)
+            and danger_at(danger_map, tile) == 0
+        )
+        for tile in neighbours
+    ]
+
+    opponent_targets = opponent_adjacent_targets(
+        field, opponents, occupied_by_bombs
+    )
+    opponent_direction, opponent_distance = bfs_first_step(
+        field, position, opponent_targets, occupied_by_bombs, opponents
+    )
+    coin_direction, coin_distance = bfs_first_step(
+        field,
+        position,
+        game_state.get("coins", ()),
+        occupied_by_bombs,
+        opponents,
+    )
+    crate_targets = crate_adjacent_targets(
+        field, occupied_by_bombs, opponents
+    )
+    crate_direction, crate_distance = bfs_first_step(
+        field, position, crate_targets, occupied_by_bombs, opponents
+    )
+
+    if opponent_distance is not None and opponent_distance <= 3 * BOMB_POWER:
+        target_direction = opponent_direction
+    elif coin_distance is not None:
+        target_direction = coin_direction
+    elif crate_distance is not None:
+        target_direction = crate_direction
+    else:
+        target_direction = opponent_direction
+    target_route = direction_and_distance_features(
+        target_direction, 0, field.shape
+    )[:4]
+
+    destroyed_crates, opponent_hit = bomb_effects_from(
+        position, field, opponents
+    )
+    useful_bomb = bool(destroyed_crates or opponent_hit)
+    good_bomb_spot = (
+        can_place_bomb(position, bombs_left, occupied_by_bombs)
+        and useful_bomb
+        and has_safe_bomb_escape(
+            field,
+            position,
+            bombs,
+            opponents,
+            game_state.get("explosion_map"),
+            BOMB_TIMER,
+        )
+    )
+    return tuple(
+        [
+            current_danger,
+            *safe_moves,
+            *map(int, target_route),
+            int(good_bomb_spot),
+        ]
+    )
+
+
 def advanced_features_oc31(game_state):
     """Convert a game state into the advanced 31-value feature vector.
 
