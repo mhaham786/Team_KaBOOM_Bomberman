@@ -1,0 +1,38 @@
+{
+  "task": 3,
+  "scenario": "classic",
+  "feature_dimension": 33,
+  "architecture": "33 \u2192 128 \u2192 128 \u2192 6",
+  "actions": [
+    "UP",
+    "RIGHT",
+    "DOWN",
+    "LEFT",
+    "WAIT",
+    "BOMB"
+  ],
+  "policy_only_checkpoint": true,
+  "source_experiment": "optimized_dqn_t2_policy_only",
+  "checkpoint_sha256": "71f9475a54b658e14c979d6e279e2a4e69e41b1b8aa3c806ab37104b86868223",
+  "task3_retraining_occurred": false,
+  "implementation": "Task 3 improvement is implemented by evaluation-time runtime action selection.",
+  "training_behavior": "Training and no-opponent paths bypass the Task 3 intervention.",
+  "future_training": "Future training can warm-start the policy weights using a new experiment name.",
+  "resume_support": "Optimizer and replay memory start fresh; exact training resume is not available.",
+  "final_1000_round_comparison": {
+    "dqn_score": 5.683,
+    "rule_based_score": 4.048,
+    "dqn_coins": 5.163,
+    "rule_based_coins": 3.718,
+    "dqn_kills": 104,
+    "rule_based_kills": 66,
+    "dqn_eliminations_per_100_steps": 0.03354,
+    "rule_based_eliminations_per_100_steps": 0.02121,
+    "dqn_coin_share_percent": 58.14,
+    "dqn_deaths": 296,
+    "rule_based_deaths": 276,
+    "dqn_suicides": 231,
+    "rule_based_suicides": 214
+  },
+  "known_limitation": "Safety metrics remain slightly below the rule-based agent."
+}

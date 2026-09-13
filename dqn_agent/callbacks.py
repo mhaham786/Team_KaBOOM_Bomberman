@@ -5,21 +5,19 @@ import numpy as np
 import torch
 
 from ..common.experiment import ExperimentRun
-from ..common.features import *
+from ..common.features import classic_peace_improved_oc33
 from ..common.helpers import action_mask
 from . import config
 from .experiment import load_policy
 from .model import DQN
+from .task3 import choose_safe_action, prefer_safe_offensive_bomb
 
 
 def setup(self):
     self.device = torch.device(
         "cuda" if self.train and torch.cuda.is_available() else "cpu"
     )
-    self.policy_net = DQN(
-        config.OBSERVATION_COUNT,
-        len(config.ACTIONS),
-    ).to(self.device)
+    self.policy_net = DQN(config.OBSERVATION_COUNT, len(config.ACTIONS)).to(self.device)
     self.run = ExperimentRun(config.EXPERIMENTS_DIR, config.EXPERIMENT_NAME)
     self.rng = random.Random()
     self.epsilon = config.EPSILON_START if self.train else 0.0
@@ -27,10 +25,7 @@ def setup(self):
     if not self.train:
         checkpoint = self.run.load_latest()
         if checkpoint is None:
-            self.logger.warning(
-                "No latest.pt found for experiment %s.",
-                config.EXPERIMENT_NAME,
-            )
+            self.logger.warning("No latest.pt found for %s.", config.EXPERIMENT_NAME)
         else:
             load_policy(self.policy_net, checkpoint)
             self.logger.info(
@@ -54,6 +49,7 @@ def act(self, game_state):
             features,
             mask,
             self.device,
+            None if self.train else game_state,
         )
 
     if self.train:
@@ -66,14 +62,20 @@ def sample_legal_action(mask, rng):
     return int(rng.choice(legal_actions))
 
 
-def select_greedy_action(policy_net, features, mask, device):
+def select_greedy_action(policy_net, features, mask, device, game_state=None):
     state = torch.as_tensor(features, dtype=torch.float32, device=device).unsqueeze(0)
     mask = torch.as_tensor(mask, dtype=torch.bool, device=device)
 
     with torch.no_grad():
         q_values = policy_net(state).squeeze(0)
-        q_values = q_values.masked_fill(
-            ~mask,
-            torch.finfo(q_values.dtype).min,
+        ranked = torch.argsort(
+            q_values.masked_fill(~mask, torch.finfo(q_values.dtype).min),
+            descending=True,
+            stable=True,
         )
-    return int(torch.argmax(q_values).item())
+    selected = int(ranked[0].item())
+    if game_state is None or not game_state.get("others", ()):
+        return selected
+    if prefer_safe_offensive_bomb(game_state, mask, ranked):
+        selected = 5
+    return choose_safe_action(game_state, mask, ranked, selected)
