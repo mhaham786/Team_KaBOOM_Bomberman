@@ -100,11 +100,6 @@ def plot_hunting_behavior(metrics, ax):
             valid_episodes.append(metric["episode"])
             valid_kills.append(steps)
             
-<<<<<<< HEAD
-    plot = None
-    if valid_kills: 
-        plot = ax2.plot(valid_episodes, running_average(valid_kills, RUNNING_AVERAGE_WINDOW), linewidth=2, color="blue", label=f"steps to kill - {RUNNING_AVERAGE_WINDOW}-episode average")
-=======
     if valid_kills:
         kill_line = ax2.plot(
             valid_episodes,
@@ -113,7 +108,6 @@ def plot_hunting_behavior(metrics, ax):
             color="blue",
             label=f"steps to kill - {RUNNING_AVERAGE_WINDOW}-episode average",
         )[0]
->>>>>>> 8bf78fdd26b7f044223513bd4980a487896ffe90
         
     ax2.set_ylabel('Steps to Kill')
     ax.set_title('Hunting Behavior & Trapping Efficiency')
@@ -163,8 +157,4 @@ def create_figure_task3(metric):
     plot_coin_stats(metric, ax4)
 
     figure.tight_layout()
-<<<<<<< HEAD
     return figure
-=======
-    return figure
->>>>>>> 8bf78fdd26b7f044223513bd4980a487896ffe90

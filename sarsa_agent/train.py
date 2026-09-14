@@ -4,13 +4,12 @@ from pathlib import Path
 
 import numpy as np
 
-from ..common.metrics import Task2Metrics
-from ..common.rewards import coin_heaven_rewards_sarsa, task2_rewards_sarsa
+from ..common.metrics import Task3Metrics
+from ..common.features import sarsa_task3_features_oc10
+from ..common.rewards import task3_rewards_sarsa
 from . import config
-from .callbacks import ACTIONS, MODEL_PATH, action_values, select_action, state_to_features
+from .callbacks import action_values, select_action, state_to_features
 
-
-METRICS_PATH = Path(__file__).with_name("train.jsonl")
 
 
 def setup_training(self):
@@ -23,49 +22,46 @@ def setup_training(self):
     self.pending_transition = None
     self.episode = 0
     self.current_steps = 0
-    self.metrics = Task2Metrics()
-    METRICS_PATH.write_text("")
-
+    self.metrics = Task3Metrics()
+    config.METRICS_PATH.write_text("")
 
 def _reward(old_state, action, events):
-    reward = task2_rewards_sarsa(events)
+    reward = task3_rewards_sarsa(events)
     if old_state is None:
         return reward
 
-    features = state_to_features(old_state)
+    features = sarsa_task3_features_oc10(old_state)
     
     current_danger = features[0]
-    escapes = features[1:5]
-    valid_moves = features[5:9]
-    target_route = features[9:13]
-    can_bomb = features[13]
-    good_bomb_spot = features[14]
+    safe_moves = features[1:5]
+    target_route = features[5:9]
+    good_bomb_spot = features[9]
 
     if current_danger:
         if action in ['UP', 'RIGHT', 'DOWN', 'LEFT']:
             action_idx = ['UP', 'RIGHT', 'DOWN', 'LEFT'].index(action)
-            if escapes[action_idx]:
-                reward += 2  
+            if safe_moves[action_idx]:
+                reward += 2
             else:
-                reward -= 5  
+                reward -= 5
         else:
-            reward -= 10       
+            reward -= 10
     else:
         reward -= 0.1 
         
         if action in ['UP', 'RIGHT', 'DOWN', 'LEFT']:
             action_idx = ['UP', 'RIGHT', 'DOWN', 'LEFT'].index(action)
-            if not valid_moves[action_idx]:
-                reward -= 5  
+            if not safe_moves[action_idx]:
+                reward -= 5
                 
         if action == 'BOMB':
-            if good_bomb_spot and can_bomb:
-                reward += 5 
+            if good_bomb_spot:
+                reward += 5
             else:
                 reward -= 10
         elif action != 'WAIT':
             if any(target_route):
-                best_action = ACTIONS[int(np.argmax(target_route))]
+                best_action = config.ACTIONS[int(np.argmax(target_route))]
                 reward += 1 if action == best_action else -1
 
     return reward
@@ -127,9 +123,9 @@ def end_of_round(self, last_game_state, last_action, events):
     self.episode += 1
     self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
     metric = self.metrics.to_dict(self.episode, self.current_steps)
-    with METRICS_PATH.open("a") as file:
+    with config.METRICS_PATH.open("a") as file:
         file.write(json.dumps(metric) + "\n")
-    with MODEL_PATH.open("wb") as file:
+    with config.MODEL_PATH.open("wb") as file:
         pickle.dump(self.q_table, file)
 
     self.next_action = None

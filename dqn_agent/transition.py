@@ -57,8 +57,8 @@ class Transition:
         agent = self.agent
         done = new_game_state is None
         events = list(events)
-        state = advanced_features_oc31(old_game_state)
-        next_state = advanced_features_oc31(new_game_state)
+        state = classic_peace_improved_oc33(old_game_state)
+        next_state = classic_peace_improved_oc33(new_game_state)
         next_mask = (
             np.zeros(len(config.ACTIONS), dtype=np.bool_)
             if done

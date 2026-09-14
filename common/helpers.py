@@ -489,3 +489,26 @@ def safe_adjacent_tile_count(field, opponent, blast, bombs, other_opponents):
             add_position(opponent, movement) for movement in MOVEMENTS
         )
     )
+
+
+def can_escape_blast(field, start, blast, bombs, opponents, max_steps):
+    """Return whether a position can leave a blast within a step limit."""
+    queue = deque([(start, 0)])
+    visited = {start}
+
+    while queue:
+        position, steps = queue.popleft()
+        if position not in blast:
+            return True
+        if steps >= max_steps:
+            continue
+
+        for movement in MOVEMENTS:
+            neighbour = add_position(position, movement)
+            if neighbour in visited or not is_walkable(
+                neighbour, field, bombs, opponents
+            ):
+                continue
+            visited.add(neighbour)
+            queue.append((neighbour, steps + 1))
+    return False

@@ -7,16 +7,8 @@ from time import perf_counter
 
 import numpy as np
 
-from ..common.features import coin_heaven_bfs_oc9, sarsa_task2_features
+from ..common.features import sarsa_task3_features_oc10
 from . import config
-
-REINITIALIZE_Q_TABLE = True
-ACTIONS = ["UP", "RIGHT", "DOWN", "LEFT", "WAIT", "BOMB"]
-LOAD_MODEL_FILENAME = "sarsa_model_task_a12.pt"
-SAVE_MODEL_FILENAME = "sarsa_model_task_a12.pt"
-LOAD_PATH = Path(__file__).with_name(LOAD_MODEL_FILENAME)
-MODEL_PATH = Path(__file__).with_name(SAVE_MODEL_FILENAME)
-TIMING_PATH_ENV = "SARSA_DECISION_TIMING_PATH"
 
 
 def setup(self):
@@ -24,36 +16,42 @@ def setup(self):
     self.decision_count = 0
     self.decision_time_total = 0.0
     self.decision_time_max = 0.0
-    self.timing_path = os.environ.get(TIMING_PATH_ENV)
+    self.timing_path = os.environ.get(config.TIMING_PATH_ENV)
     if self.timing_path:
         atexit.register(_write_decision_summary, self)
 
-    if self.train and REINITIALIZE_Q_TABLE:
+    if self.train and config.REINITIALIZE_Q_TABLE:
         self.logger.info("Setting up Q-table from scratch.")
         self.q_table = {}
         return
-    if not LOAD_PATH.is_file():
-        raise FileNotFoundError(f"SARSA model not found: {LOAD_PATH}")
+    if not config.LOAD_PATH.is_file():
+        raise FileNotFoundError(f"SARSA model not found: {config.LOAD_PATH}")
 
     self.logger.info("Loading Q-table from saved state.")
     try:
-        with LOAD_PATH.open("rb") as file:
+        with config.LOAD_PATH.open("rb") as file:
             self.q_table = pickle.load(file)
     except (OSError, pickle.PickleError, EOFError) as error:
-        raise RuntimeError(f"Failed to load SARSA model: {LOAD_PATH}") from error
+        raise RuntimeError(
+            f"Failed to load SARSA model: {config.LOAD_PATH}"
+        ) from error
     if not isinstance(self.q_table, dict):
-        raise RuntimeError(f"Invalid SARSA model data: {LOAD_PATH}")
+        raise RuntimeError(f"Invalid SARSA model data: {config.LOAD_PATH}")
 
 
 def state_to_features(game_state):
-    features = sarsa_task2_features(game_state)
+    features = sarsa_task3_features_oc10(game_state)
     return None if features is None else tuple(features)
 
 def available_actions(game_state, state=None):
     if game_state.get("others") or np.any(np.asarray(game_state["field"]) == 1):
-        return ACTIONS
+        return config.ACTIONS
     state = state_to_features(game_state) if state is None else state
-    movements = [action for action, free in zip(ACTIONS[:4], state[:4]) if free]
+    movements = [
+        action
+        for action, free in zip(config.ACTIONS[:4], state[1:5])
+        if free
+    ]
     return movements or ["WAIT"]
 
 
@@ -88,7 +86,7 @@ def act(self, game_state):
 
 
 def action_values(self, state):
-    return self.q_table.setdefault(state, dict.fromkeys(ACTIONS, 0.0))
+    return self.q_table.setdefault(state, dict.fromkeys(config.ACTIONS, 0.0))
 
 
 def _write_decision_summary(self):

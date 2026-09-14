@@ -3,7 +3,7 @@ import random
 import numpy as np
 import torch
 
-from ..common.metrics import Task2Metrics
+from ..common.metrics import Task3Metrics
 from . import config
 from .experiment import (
     create_experiment,
@@ -84,7 +84,7 @@ def setup_training(self):
         self.device,
         self.replay_rng,
     )
-    self.metrics = Task2Metrics()
+    self.metrics = Task3Metrics()
     self.transition = Transition(self)
     self.total_transitions = 0
     self.episode = 0

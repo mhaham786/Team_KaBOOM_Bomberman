@@ -1,0 +1,17 @@
+{
+  "run_name": "optimized_dqn_t2_policy_only",
+  "description": "Policy-only export of optimized_dqn_t2 without replay-memory dependencies.",
+  "source_experiment": "optimized_dqn_t2",
+  "observation_count": 33,
+  "actions": [
+    "UP",
+    "RIGHT",
+    "DOWN",
+    "LEFT",
+    "WAIT",
+    "BOMB"
+  ],
+  "checkpoint_contents": [
+    "policy_state"
+  ]
+}
