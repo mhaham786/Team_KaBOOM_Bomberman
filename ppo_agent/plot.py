@@ -1,11 +1,13 @@
 import argparse
+import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from ..common.plots import general_plot, task1, task2
-from ..common.plots.helpers import load_metrics
-from . import config
+from common.plots import general_plot, task1, task2, task3
+from common.plots.helpers import load_metrics
+import config
 
 
 def parse_args():
@@ -35,6 +37,8 @@ def create_task_figure(metrics, task):
         return task1.create_figure_task1(metrics), "task1_metrics.png"
     if task == 2:
         return task2.create_figure_task2(metrics), "task2_metrics.png"
+    if task == 3:
+        return task3.create_figure_task3(metrics), "task3_metrics.png"
     return None
 
 

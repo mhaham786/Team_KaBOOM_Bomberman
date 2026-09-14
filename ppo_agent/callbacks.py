@@ -5,7 +5,7 @@ import torch
 from ..common.experiment import ExperimentRun
 from . import config
 from .model import ActorCritic, action_distribution, load_weights
-from .task2 import loot_crate_bfs_oc9, task2_action_mask
+from .task3 import combat_bfs_oc9, task3_action_mask
 
 EVALUATION_SEED = 71042
 EVALUATION_TEMPERATURE = 0.75
@@ -24,7 +24,7 @@ def setup(self):
                 "RESUME_TRAINING and RESTART_EXPERIMENT cannot both be True."
             )
         if config.RESTART_EXPERIMENT:
-            raise ValueError("Use a new Task 2 experiment name; existing runs are preserved.")
+            raise ValueError("Use a new Task 3 experiment name; existing runs are preserved.")
         if config.RESUME_TRAINING:
             checkpoint = self.run.load_latest()
             if checkpoint is None:
@@ -42,7 +42,7 @@ def setup(self):
     else:
         checkpoint = self.run.load_latest()
         if checkpoint is None:
-            raise FileNotFoundError(f"Missing Task 2 checkpoint: {self.run.latest_path}")
+            raise FileNotFoundError(f"Missing Task 3 checkpoint: {self.run.latest_path}")
         self.model.eval()
 
     if checkpoint is not None:
@@ -51,7 +51,7 @@ def setup(self):
         self.logger.info("Loaded latest.pt from experiment %s.", config.EXPERIMENT_NAME)
     else:
         checkpoint = torch.load(config.TASK1_CHECKPOINT, map_location="cpu", weights_only=False)
-        load_weights(self.model, checkpoint["model_state"], task1=True)
+        load_weights(self.model, checkpoint["model_state"])
         self.logger.info("Transferred Task 1 weights; initialized only BOMB output and fresh optimizer.")
     if not self.train:
         self.eval_generator = torch.Generator().manual_seed(EVALUATION_SEED)
@@ -59,8 +59,8 @@ def setup(self):
 
 def act(self, game_state):
     start_time = perf_counter() if self.train else None
-    state = torch.tensor(loot_crate_bfs_oc9(game_state), dtype=torch.float32)
-    mask = torch.from_numpy(task2_action_mask(game_state))
+    state = torch.tensor(combat_bfs_oc9(game_state), dtype=torch.float32)
+    mask = torch.from_numpy(task3_action_mask(game_state))
 
     with torch.no_grad():
         logits, value = self.model(state)
