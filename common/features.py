@@ -589,3 +589,153 @@ def advanced_features_oc31(game_state):
     if not np.isfinite(features).all():
         raise RuntimeError("feature vector contains non-finite values")
     return features
+
+
+def competitive_features_oc54(game_state):
+    """Encode compact navigation, survival, bombing, and multi-opponent context.
+
+    Feature layout:
+        0-3: walkability of UP, RIGHT, DOWN, LEFT neighbour tiles.
+        4: whether this agent can currently place a bomb.
+        5-9: danger at current, UP, RIGHT, DOWN, LEFT tiles.
+        10-13: time-safe movement without placing a new bomb.
+        14-17: time-safe escape directions after placing a bomb here.
+        18-22: direction and distance to the nearest visible coin.
+        23-27: direction and distance to an efficient crate-bombing tile.
+        28-32: direction and distance to the nearest opponent.
+        33-34: normalized dx and dy to the nearest active bomb.
+        35: normalized timer of the nearest active bomb, or 0.0 when absent.
+        36: normalized number of crates hit by a bomb placed here.
+        37: fraction of living opponents hit by a bomb placed here.
+        38: trapping quality of that bomb from 0.0 to 1.0.
+        39-53: presence, dx, dy, bomb availability, and relative score for
+            up to three opponents, ordered from nearest to farthest.
+    """
+    if game_state is None:
+        return None
+
+    field = np.asarray(game_state["field"])
+    _, own_score, bombs_left, position = game_state["self"]
+    position = tuple(position)
+    bombs = game_state.get("bombs", ())
+    others = game_state.get("others", ())
+    occupied_by_bombs = bomb_positions(bombs)
+    opponents = opponent_positions(others)
+    explosion_map = game_state.get("explosion_map")
+    features = np.zeros(54, dtype=np.float32)
+
+    neighbours = [add_position(position, movement) for movement in MOVEMENTS]
+    for index, tile in enumerate(neighbours):
+        features[index] = is_walkable(
+            tile, field, occupied_by_bombs, opponents
+        )
+
+    bomb_available = can_place_bomb(
+        position, bombs_left, occupied_by_bombs
+    )
+    features[4] = bomb_available
+
+    danger_map = build_danger_map(field, bombs, explosion_map)
+    for index, tile in enumerate((position, *neighbours), start=5):
+        features[index] = danger_at(danger_map, tile)
+
+    features[10:14] = time_safe_escape_directions(
+        field,
+        position,
+        False,
+        bombs,
+        opponents,
+        explosion_map,
+    )
+    if bomb_available:
+        features[14:18] = time_safe_escape_directions(
+            field,
+            position,
+            True,
+            bombs,
+            opponents,
+            explosion_map,
+            force_hypothetical=True,
+        )
+
+    direction, distance = bfs_first_step(
+        field,
+        position,
+        game_state.get("coins", ()),
+        occupied_by_bombs,
+        opponents,
+    )
+    features[18:23] = direction_and_distance_features(
+        direction, distance, field.shape
+    )
+
+    direction, distance = efficient_crate_bombing_target_bfs(
+        field,
+        position,
+        occupied_by_bombs,
+        opponents,
+    )
+    features[23:28] = direction_and_distance_features(
+        direction, distance, field.shape
+    )
+
+    targets = opponent_adjacent_targets(field, opponents, occupied_by_bombs)
+    direction, distance = bfs_first_step(
+        field, position, targets, occupied_by_bombs, opponents
+    )
+    features[28:33] = direction_and_distance_features(
+        direction, distance, field.shape
+    )
+
+    closest_bomb = nearest_bomb(position, bombs)
+    if closest_bomb is not None:
+        features[33:35] = relative_position(
+            position, tuple(closest_bomb[0]), field.shape
+        )
+        features[35] = np.clip(
+            (closest_bomb[1] + 1) / (BOMB_TIMER + 1), 0.0, 1.0
+        )
+
+    blast = set(blast_tiles(position, field))
+    threatened = opponents & blast
+    destroyed_crates = sum(field[tile] == 1 for tile in blast)
+    features[36] = np.clip(
+        destroyed_crates / (BOMB_POWER * len(MOVEMENTS)), 0.0, 1.0
+    )
+    features[37] = len(threatened) / max(1, len(opponents))
+    if threatened:
+        occupied_after_bomb = occupied_by_bombs | {position}
+        escape_tiles = min(
+            safe_adjacent_tile_count(
+                field,
+                opponent,
+                blast,
+                occupied_after_bomb,
+                opponents - {opponent},
+            )
+            for opponent in threatened
+        )
+        features[38] = 1.0 - escape_tiles / len(MOVEMENTS)
+
+    nearest_others = sorted(
+        others,
+        key=lambda other: (
+            abs(other[3][0] - position[0]) + abs(other[3][1] - position[1]),
+            other[3][0],
+            other[3][1],
+        ),
+    )
+    for index, (_, score, opponent_bombs_left, opponent) in enumerate(
+        nearest_others[:3]
+    ):
+        offset = 39 + 5 * index
+        features[offset] = 1.0
+        features[offset + 1 : offset + 3] = relative_position(
+            position, tuple(opponent), field.shape
+        )
+        features[offset + 3] = bool(opponent_bombs_left)
+        features[offset + 4] = np.tanh((score - own_score) / 10.0)
+
+    if not np.isfinite(features).all():
+        raise RuntimeError("feature vector contains non-finite values")
+    return features

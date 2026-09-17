@@ -6,7 +6,7 @@ try:
 except ImportError:
     pass
 
-from helpers import running_average
+from .helpers import running_average
 
 def get_agent_names(metrics):
     names = set()

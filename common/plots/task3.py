@@ -100,7 +100,6 @@ def plot_hunting_behavior(metrics, ax):
             valid_episodes.append(metric["episode"])
             valid_kills.append(steps)
             
-<<<<<<< Updated upstream
     if valid_kills:
         kill_line = ax2.plot(
             valid_episodes,
@@ -109,11 +108,6 @@ def plot_hunting_behavior(metrics, ax):
             color="blue",
             label=f"steps to kill - {RUNNING_AVERAGE_WINDOW}-episode average",
         )[0]
-=======
-    plot = None
-    if valid_kills: 
-        plot = ax2.plot(valid_episodes, running_average(valid_kills, RUNNING_AVERAGE_WINDOW), linewidth=2, color="blue", label=f"steps to kill - {RUNNING_AVERAGE_WINDOW}-episode average")
->>>>>>> Stashed changes
         
     ax2.set_ylabel('Steps to Kill')
     ax.set_title('Hunting Behavior & Trapping Efficiency')

@@ -395,7 +395,7 @@ def bfs_first_step(field, start, targets, bombs=(), opponents=()):
     return None, None
 
 
-def efficient_crate_bombing_target_bfs(field, start, bombs=()):
+def efficient_crate_bombing_target_bfs(field, start, bombs=(), opponents=()):
     """Return the route maximizing crates destroyed per travel distance."""
     if not in_bounds(start, field.shape):
         return None, None
@@ -418,7 +418,7 @@ def efficient_crate_bombing_target_bfs(field, start, bombs=()):
         for index, delta in enumerate(MOVEMENTS):
             neighbour = add_position(position, delta)
             if neighbour in visited or not is_walkable(
-                neighbour, field, bombs
+                neighbour, field, bombs, opponents
             ):
                 continue
             direction = index if first_direction is None else first_direction
