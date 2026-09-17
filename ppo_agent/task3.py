@@ -20,7 +20,6 @@ def combat_bfs_oc9(game_state):
     moves = [is_walkable(add_position(origin, delta), field, bombs, others)
              for delta in MOVEMENTS]
              
-]
     direction, distance = bfs_first_step(field, origin, game_state['coins'], bombs, others)
     
     if distance is None:
