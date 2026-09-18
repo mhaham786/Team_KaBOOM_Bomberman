@@ -8,19 +8,19 @@ class ActorCritic(nn.Module):
         super().__init__()
 
         self.actor = nn.Sequential(
-            nn.Linear(observation_count, 64),
+            nn.Linear(observation_count, 128),
             nn.ReLU(),
-            nn.Linear(64, 64),
+            nn.Linear(128, 128),
             nn.ReLU(),
-            nn.Linear(64, action_count),
+            nn.Linear(128, action_count),
         )
 
         self.critic = nn.Sequential(
-            nn.Linear(observation_count, 64),
+            nn.Linear(observation_count, 128),
             nn.ReLU(),
-            nn.Linear(64, 64),
+            nn.Linear(128, 128),
             nn.ReLU(),
-            nn.Linear(64, 1),
+            nn.Linear(128, 1),
         )
 
     def forward(self, observations):

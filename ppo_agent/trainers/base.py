@@ -62,6 +62,10 @@ class TrainerBase:
 
         self.optimizer.zero_grad()
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(
+            self.model.parameters(),
+            config.GRADIENT_CLIP_NORM,
+        )
         self.optimizer.step()
 
     def compute_advantages(self, rewards, dones, values):

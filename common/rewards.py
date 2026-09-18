@@ -143,6 +143,17 @@ def coin_heaven_rewards_ppo_improved(events):
     return reward
 
 
+def task4_rewards_ppo(events, won=None):
+    """Reward Task 4 coins and opponent kills while discouraging suicide."""
+    reward = 1.0 * events.count(e.COIN_COLLECTED)
+    reward += 5.0 * events.count(e.KILLED_OPPONENT)
+    reward -= 1.0 * events.count(e.KILLED_SELF)
+
+    if won:
+        reward += 7.0
+    return float(reward)
+
+
 def advanced_reward_shaping_dqn(
     action,
     old_game_state,

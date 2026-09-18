@@ -1,0 +1,31 @@
+{
+  "run_name": "task4_oc54_team_models_entropy005_v24",
+  "description": "Continue v22 against the team models with entropy reduced to 0.005.",
+  "initial_weights_experiment": "task4_oc54_team_models_continue_v22",
+  "actions": [
+    "UP",
+    "RIGHT",
+    "DOWN",
+    "LEFT",
+    "WAIT",
+    "BOMB"
+  ],
+  "config": {
+    "random_seed": 42,
+    "resume_training": false,
+    "restart_experiment": true,
+    "load_initial_optimizer": true,
+    "observation_count": 54,
+    "learning_rate": 0.0003,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip_epsilon": 0.2,
+    "value_coef": 0.5,
+    "entropy_coef": 0.005,
+    "update_epochs": 3,
+    "minibatch_size": 64,
+    "rollout_steps": 2048,
+    "gradient_clip_norm": 0.5
+  },
+  "model_structure": "ActorCritic(\n  (actor): Sequential(\n    (0): Linear(in_features=54, out_features=128, bias=True)\n    (1): ReLU()\n    (2): Linear(in_features=128, out_features=128, bias=True)\n    (3): ReLU()\n    (4): Linear(in_features=128, out_features=6, bias=True)\n  )\n  (critic): Sequential(\n    (0): Linear(in_features=54, out_features=128, bias=True)\n    (1): ReLU()\n    (2): Linear(in_features=128, out_features=128, bias=True)\n    (3): ReLU()\n    (4): Linear(in_features=128, out_features=1, bias=True)\n  )\n)"
+}

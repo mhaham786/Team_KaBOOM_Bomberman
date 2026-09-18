@@ -1,34 +1,10 @@
 from collections import Counter
 
-import events as e
-
 from . import config
 from .episode_buffer import EpisodeBuffer
-from ..common.metrics import Task3Metrics
-from .trainers import GAEPPOTrainer, PPOTrainer
-
-from ..common.helpers import bomb_effects_from
-
-
-REWARDS = {e.COIN_COLLECTED: 10, e.CRATE_DESTROYED: 2, e.COIN_FOUND: 1,
-           e.SURVIVED_ROUND: 5, e.INVALID_ACTION: -5,
-           e.KILLED_SELF: -50, e.GOT_KILLED: -40,
-           e.KILLED_OPPONENT: 50}
-
-
-def task3_reward(events, state):
-    reward = sum(REWARDS.get(event, 0) for event in events)
-    if e.BOMB_DROPPED in events:
-        others_positions = [other[3] for other in state['others']]
-        
-
-        crates, opponents_hit = bomb_effects_from(tuple(state['self'][3]), state['field'], others_positions)
-        
-
-        if not crates and not opponents_hit:
-            reward -= 1
-            
-    return float(reward)
+from ..common.metrics import Task4Metrics
+from ..common.rewards import task4_rewards_ppo
+from .trainers import GAEPPOTrainer
 
 
 def setup_training(self):
@@ -36,6 +12,7 @@ def setup_training(self):
     self.run.create(
         {
             "description": getattr(config, "DESCRIPTION", ""),
+            "initial_weights_experiment": config.INITIAL_WEIGHTS_EXPERIMENT,
             "actions": list(config.ACTIONS),
             "config": {
                 name.lower(): value
@@ -46,9 +23,10 @@ def setup_training(self):
         }
     )
     self.buffer = EpisodeBuffer()
-    self.metrics = Task3Metrics()
+    self.metrics = Task4Metrics()
     self.last_events = []
     self.episode = self.run.get_progress()
+    self.round_start = 0
 
 
 def game_events_occurred(
@@ -57,7 +35,7 @@ def game_events_occurred(
     if not self.buffer.pending:
         return
 
-    reward = task3_reward(events, old_game_state)
+    reward = task4_rewards_ppo(events)
     self.metrics.record_events(events, reward, old_game_state, new_game_state)
     self.buffer.finish(reward, False)
     self.last_events = list(events)
@@ -65,22 +43,24 @@ def game_events_occurred(
 
 def end_of_round(self, last_game_state, last_action, events):
     if self.buffer.pending:
-        reward = task3_reward(events, last_game_state)
-        self.metrics.record_events(events, reward, last_game_state)
+        reward = final_reward(self, events, last_game_state)
         self.buffer.finish(reward, True)
-    elif self.buffer.states:
+    elif len(self.buffer) > self.round_start:
         # Survivors already reported their final action; credit only new events.
         final_events = list((Counter(events) - Counter(self.last_events)).elements())
-        reward = task3_reward(final_events, last_game_state)
-        self.metrics.record_events(final_events, reward, last_game_state)
+        reward = final_reward(self, final_events, last_game_state)
         self.buffer.rewards[-1] += reward
         self.buffer.dones[-1] = True
     else:
         return
 
-    self.trainer.update(self.buffer)
+    round_steps = len(self.buffer) - self.round_start
+    update_model = len(self.buffer) >= config.ROLLOUT_STEPS
+    if update_model:
+        self.trainer.update(self.buffer)
+
     self.episode += 1
-    metric = self.metrics.to_dict(self.episode, len(self.buffer))
+    metric = self.metrics.to_dict(self.episode, round_steps)
 
     self.run.save_latest(
         {
@@ -90,6 +70,29 @@ def end_of_round(self, last_game_state, last_action, events):
     )
     self.run.append_train_metric(metric)
 
-    self.buffer.reset()
+    if update_model:
+        self.buffer.reset()
+    self.round_start = len(self.buffer)
     self.metrics.reset()
     self.last_events = []
+
+
+def final_reward(self, events, game_state):
+    """Return event and round-outcome rewards for the final transition."""
+    event_reward = task4_rewards_ppo(events)
+    self.metrics.record_events(events, event_reward, game_state)
+
+    scores = self.metrics.scores
+    best_score = max(scores.values())
+    leaders = [name for name, score in scores.items() if score == best_score]
+    if self.metrics.killed:
+        outcome = False
+    elif leaders == [self.metrics.agent_name]:
+        outcome = True
+    elif self.metrics.agent_name not in leaders:
+        outcome = False
+    else:
+        outcome = None
+    outcome_reward = task4_rewards_ppo((), outcome) if outcome is not None else 0.0
+    self.metrics.reward += outcome_reward
+    return event_reward + outcome_reward

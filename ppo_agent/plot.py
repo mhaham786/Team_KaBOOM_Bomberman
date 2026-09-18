@@ -5,7 +5,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from common.plots import general_plot, task1, task2, task3
+from common.plots import general_plot, task1, task2, task3, task4
 from common.plots.helpers import load_metrics
 import config
 
@@ -19,7 +19,7 @@ def parse_args():
     )
     parser.add_argument(
         "--task",
-        choices=(1, 2, 3),
+        choices=(1, 2, 3, 4),
         type=int,
         help="Task-specific plot to create.",
     )
@@ -39,6 +39,8 @@ def create_task_figure(metrics, task):
         return task2.create_figure_task2(metrics), "task2_metrics.png"
     if task == 3:
         return task3.create_figure_task3(metrics), "task3_metrics.png"
+    if task == 4:
+        return task4.create_figure_task4(metrics), "task4_metrics.png"
     return None
 
 
