@@ -8,12 +8,12 @@ EXPERIMENTS_DIR = AGENT_DIR / "experiments"
 
 ACTIONS = ("UP", "RIGHT", "DOWN", "LEFT", "WAIT", "BOMB")
 
-EXPERIMENT_NAME = "task4_3_rule_based_v1"
+EXPERIMENT_NAME = "task4_mixed"
 DESCRIPTION = "Task 4 against 3 rule based agents"
 
 RESUME_TRAINING = False
 RESTART_EXPERIMENT = False
-INITIAL_WEIGHTS_EXPERIMENT = "dqn_task3_op"
+INITIAL_WEIGHTS_EXPERIMENT = "task4_3_rule_based_v1"
 
 OBSERVATION_COUNT = 33
 

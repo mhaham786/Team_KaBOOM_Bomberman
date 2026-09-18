@@ -34,7 +34,7 @@ def safe_bomb_escape(game_state):
 
 
 def prefer_safe_offensive_bomb(game_state, legal, ranked):
-    if not legal[5] or 5 not in ranked[:2].tolist():
+    if not legal[5]: 
         return False
     _, hit = bomb_effects_from(
         tuple(game_state["self"][3]),
