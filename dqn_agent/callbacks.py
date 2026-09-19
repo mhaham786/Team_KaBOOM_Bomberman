@@ -18,19 +18,24 @@ def setup(self):
         "cuda" if self.train and torch.cuda.is_available() else "cpu"
     )
     self.policy_net = DQN(config.OBSERVATION_COUNT, len(config.ACTIONS)).to(self.device)
-    self.run = ExperimentRun(config.EXPERIMENTS_DIR, config.EXPERIMENT_NAME)
+    experiment_name = (
+        config.EXPERIMENT_NAME
+        if self.train
+        else config.EVALUATION_EXPERIMENT_NAME
+    )
+    self.run = ExperimentRun(config.EXPERIMENTS_DIR, experiment_name)
     self.rng = random.Random()
     self.epsilon = config.EPSILON_START if self.train else 0.0
 
     if not self.train:
         checkpoint = self.run.load_latest()
         if checkpoint is None:
-            self.logger.warning("No latest.pt found for %s.", config.EXPERIMENT_NAME)
+            self.logger.warning("No latest.pt found for %s.", experiment_name)
         else:
             load_policy(self.policy_net, checkpoint)
             self.logger.info(
                 "Loaded latest.pt from experiment %s.",
-                config.EXPERIMENT_NAME,
+                experiment_name,
             )
 
     self.policy_net.eval()

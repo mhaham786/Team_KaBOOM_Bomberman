@@ -9,7 +9,8 @@ EXPERIMENTS_DIR = AGENT_DIR / "experiments"
 ACTIONS = ("UP", "RIGHT", "DOWN", "LEFT", "WAIT", "BOMB")
 
 EXPERIMENT_NAME = "task4_mixed"
-DESCRIPTION = "Task 4 against 3 rule based agents"
+DESCRIPTION = "Task 4 against RUEHL, PPO, and SARSA."
+EVALUATION_EXPERIMENT_NAME = "task4_mixed_policy_only"
 
 RESUME_TRAINING = False
 RESTART_EXPERIMENT = False
