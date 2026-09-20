@@ -1,0 +1,30 @@
+{
+  "run_name": "task4_oc54_rotating_league_snapshot9500",
+  "description": "PPO Task 4 challenger initialized from recovery snapshot 4500, trained for 10,000 rounds in a rotating opponent league, with round 9500 selected as the checkpoint.",
+  "initial_checkpoint": {
+    "description": "Recovery snapshot 4500",
+    "path": "/home/wang-loom/projects/ppo_task4_recovery_snapshot4000_mixed_5000_seed43_20260918T185730Z/training_5000/snapshots/snapshot_4500.pt",
+    "sha256": "65f44cbf72ec9f847dd5f7be044fc117b1a0d1bff232400ffff6373449cb2b81"
+  },
+  "training_rounds": 10000,
+  "training_schedule": "Rotating opponent league",
+  "seed_range": [44, 53],
+  "selected_checkpoint_round": 9500,
+  "checkpoint_sha256": "75e0f8ce26c54c0a4625dcb1f133895b539a4272f4a736a899fc7e64809b8d63",
+  "actions": ["UP", "RIGHT", "DOWN", "LEFT", "WAIT", "BOMB"],
+  "config": {
+    "observation_count": 54,
+    "learning_rate": 0.0001,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip_epsilon": 0.2,
+    "entropy_coef": 0.005,
+    "value_coef": 0.5,
+    "update_epochs": 3,
+    "minibatch_size": 64
+  },
+  "model_structure": {
+    "actor": [54, 128, 128, 6],
+    "critic": [54, 128, 128, 1]
+  }
+}

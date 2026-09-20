@@ -7,13 +7,13 @@ EXPERIMENTS_DIR = AGENT_DIR / "experiments"
 
 ACTIONS = ("UP", "RIGHT", "DOWN", "LEFT", "WAIT", "BOMB")
 
-EXPERIMENT_NAME = "task4_oc54_team_models_entropy005_v24"
-DESCRIPTION = "Continue v22 against the team models with entropy reduced to 0.005."
+EXPERIMENT_NAME = "task4_oc54_unseeded_generalization_v26"
+DESCRIPTION = "Continue v25 for 5,000 unseeded rounds against RUEHL, the Task 4 DQN, and the frozen Task 4 PPO."
 RANDOM_SEED = 42
 
 RESUME_TRAINING = False
 RESTART_EXPERIMENT = True
-INITIAL_WEIGHTS_EXPERIMENT = "task4_oc54_team_models_continue_v22"
+INITIAL_WEIGHTS_EXPERIMENT = "task4_oc54_final_ruehl_dqn_ppo_v25"
 LOAD_INITIAL_OPTIMIZER = True
 
 OBSERVATION_COUNT = 54
