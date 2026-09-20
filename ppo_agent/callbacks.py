@@ -19,6 +19,8 @@ def setup(self):
     self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.LEARNING_RATE)
     self.run = ExperimentRun(config.EXPERIMENTS_DIR, config.EXPERIMENT_NAME)
 
+    metrics_only = self.train and config.EVALUATION_ONLY
+
     if self.train:
         if config.RESUME_TRAINING and config.INITIAL_WEIGHTS_EXPERIMENT is not None:
             raise ValueError(
@@ -47,7 +49,10 @@ def setup(self):
             )
         else:
             checkpoint = None
-        self.model.train()
+        if metrics_only:
+            self.model.eval()
+        else:
+            self.model.train()
     else:
         checkpoint = self.run.load_latest()
         if checkpoint is None:
@@ -81,20 +86,21 @@ def setup(self):
             "Initialized a fresh fixed-feature network for experiment %s.",
             config.EXPERIMENT_NAME,
         )
-    if not self.train:
+    if not self.train or metrics_only:
         self.eval_generator = torch.Generator().manual_seed(EVALUATION_SEED)
 
 
 def act(self, game_state):
     start_time = perf_counter() if self.train else None
+    learning = self.train and not config.EVALUATION_ONLY
     state = torch.tensor(competitive_features_oc54(game_state), dtype=torch.float32)
     mask = torch.from_numpy(action_mask(game_state))
 
     with torch.no_grad():
         logits, value = self.model(state)
-        policy_logits = logits if self.train else logits / EVALUATION_TEMPERATURE
+        policy_logits = logits if learning else logits / EVALUATION_TEMPERATURE
         distribution = action_distribution(policy_logits, mask)
-        if self.train:
+        if learning:
             action = distribution.sample()
             log_prob = distribution.log_prob(action)
         else:
@@ -105,6 +111,7 @@ def act(self, game_state):
     action_index = int(action.item())
     if self.train:
         self.metrics.record_decision_time(perf_counter() - start_time)
-        self.buffer.add(state, action_index, log_prob.item(), value.item(), mask)
+        stored_log_prob = distribution.log_prob(action).item()
+        self.buffer.add(state, action_index, stored_log_prob, value.item(), mask)
 
     return config.ACTIONS[action_index]

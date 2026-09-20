@@ -7,14 +7,15 @@ EXPERIMENTS_DIR = AGENT_DIR / "experiments"
 
 ACTIONS = ("UP", "RIGHT", "DOWN", "LEFT", "WAIT", "BOMB")
 
-EXPERIMENT_NAME = "task4_oc54_unseeded_generalization_v26"
-DESCRIPTION = "Continue v25 for 5,000 unseeded rounds against RUEHL, the Task 4 DQN, and the frozen Task 4 PPO."
+EXPERIMENT_NAME = "task4_eval_snapshot9500_vs_sarsa_dqn_ruehl"
+DESCRIPTION = "Frozen snapshot 9500 evaluated against SARSA Task 4, DQN Task 4, and RUEHL."
 RANDOM_SEED = 42
 
 RESUME_TRAINING = False
 RESTART_EXPERIMENT = True
-INITIAL_WEIGHTS_EXPERIMENT = "task4_oc54_final_ruehl_dqn_ppo_v25"
-LOAD_INITIAL_OPTIMIZER = True
+INITIAL_WEIGHTS_EXPERIMENT = "task4_oc54_rotating_league_snapshot9500"
+LOAD_INITIAL_OPTIMIZER = False
+EVALUATION_ONLY = True
 
 OBSERVATION_COUNT = 54
 

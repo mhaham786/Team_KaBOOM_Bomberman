@@ -8,10 +8,15 @@ from .trainers import GAEPPOTrainer
 
 
 def setup_training(self):
-    self.trainer = GAEPPOTrainer(self.model, self.optimizer)
+    self.trainer = (
+        None
+        if config.EVALUATION_ONLY
+        else GAEPPOTrainer(self.model, self.optimizer)
+    )
     self.run.create(
         {
             "description": getattr(config, "DESCRIPTION", ""),
+            "evaluation_only": config.EVALUATION_ONLY,
             "initial_weights_experiment": config.INITIAL_WEIGHTS_EXPERIMENT,
             "actions": list(config.ACTIONS),
             "config": {
@@ -55,22 +60,26 @@ def end_of_round(self, last_game_state, last_action, events):
         return
 
     round_steps = len(self.buffer) - self.round_start
-    update_model = len(self.buffer) >= config.ROLLOUT_STEPS
+    update_model = (
+        not config.EVALUATION_ONLY
+        and len(self.buffer) >= config.ROLLOUT_STEPS
+    )
     if update_model:
         self.trainer.update(self.buffer)
 
     self.episode += 1
     metric = self.metrics.to_dict(self.episode, round_steps)
 
-    self.run.save_latest(
-        {
-            "model_state": self.model.state_dict(),
-            "optimizer_state": self.optimizer.state_dict(),
-        }
-    )
+    if not config.EVALUATION_ONLY:
+        self.run.save_latest(
+            {
+                "model_state": self.model.state_dict(),
+                "optimizer_state": self.optimizer.state_dict(),
+            }
+        )
     self.run.append_train_metric(metric)
 
-    if update_model:
+    if update_model or config.EVALUATION_ONLY:
         self.buffer.reset()
     self.round_start = len(self.buffer)
     self.metrics.reset()
