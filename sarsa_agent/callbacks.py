@@ -10,7 +10,7 @@ import numpy as np
 from ..common.features import sarsa_task3_features_oc10
 from . import config
 
-# Initialize random seeds, performance timers, and load the Q-table from disk (or create a new one)
+# Initializing random seeds, performance timers, and load the Q-table from disk (or create a new one)
 def setup(self):
     self.rng = np.random.default_rng(config.RANDOM_SEED)
     self.decision_count = 0
@@ -18,11 +18,11 @@ def setup(self):
     self.decision_time_max = 0.0
     self.timing_path = os.environ.get(config.TIMING_PATH_ENV)
     
-    # Ensure timing summaries are written when the program terminates
+    # Ensuring timing summaries are written when the program terminates
     if self.timing_path:
         atexit.register(_write_decision_summary, self)
         
-    # Start with a fresh Q-table if requested via config
+    # Starting with a fresh Q-table if requested via config
     if self.train and config.REINITIALIZE_Q_TABLE:
         self.logger.info("Setting up Q-table from scratch.")
         self.q_table = {}
@@ -30,7 +30,7 @@ def setup(self):
     if not config.LOAD_PATH.is_file():
         raise FileNotFoundError(f"SARSA model not found: {config.LOAD_PATH}")
         
-    # Load the pre-trained Q-table model weights from the pickle file
+    # Loading the pre-trained Q-table model weights from the pickle file
     self.logger.info("Loading Q-table from saved state.")
     try:
         with config.LOAD_PATH.open("rb") as file:
@@ -43,12 +43,12 @@ def setup(self):
         raise RuntimeError(f"Invalid SARSA model data: {config.LOAD_PATH}")
 
 
-# Extract the 10-dimensional feature vector from the raw game state dictionary
+# Extracting the 10-dimensional feature vector from the raw game state dictionary
 def state_to_features(game_state):
     features = sarsa_task3_features_oc10(game_state)
     return None if features is None else tuple(features)
 
-# Determine which actions are currently valid, restricting illogical moves when no opponents/crates exist
+# Determining which actions are currently valid, restricting illogical moves when no opponents/crates exist
 def available_actions(game_state, state=None):
     if game_state.get("others") or np.any(np.asarray(game_state["field"]) == 1):
         return config.ACTIONS
@@ -60,7 +60,7 @@ def available_actions(game_state, state=None):
     ]
     return movements or ["WAIT"]
 
-# Choose an action using an epsilon-greedy policy for exploration during training
+# Choosing an action using an epsilon-greedy policy for exploration during training
 def select_action(self, game_state, explore=False):
     state = state_to_features(game_state)
     actions = available_actions(game_state, state)
@@ -68,27 +68,27 @@ def select_action(self, game_state, explore=False):
     values = action_values(self, state) if explore else self.q_table.get(state)
     exploring = explore and self.rng.random() < self.epsilon
 
-    # Take a random action if exploring or if the current state has never been visited before
+    # Taking a random action if exploring or if the current state has never been visited before
     if unseen or exploring:
         return str(self.rng.choice(actions))
         
-    # Otherwise, exploit the best known action (handling ties randomly)
+    # Otherwise, exploiting the best known action (handling ties randomly)
     best = max(values[action] for action in actions)
     tied = [action for action in actions if values[action] == best]
     return str(self.rng.choice(tied))
 
-# Main game engine hook: measure decision time and return the selected action for the current step
+# Main game engine: measuring decision time and return the selected action for the current step
 def act(self, game_state):
     start = perf_counter()
 
-    # During training, use the action that was pre-calculated during the previous step's SARSA update
+    # During training, using the action that was pre-calculated during the previous step's SARSA update
     if self.train and self.next_action is not None:
         action = self.next_action
         self.next_action = None
     else:
         action = select_action(self, game_state)
 
-    # Track decision profiling metrics (total time, max time)
+    # Tracking decision profiling metrics (total time, max time)
     elapsed = perf_counter() - start
     self.decision_count += 1
     self.decision_time_total += elapsed
@@ -97,11 +97,11 @@ def act(self, game_state):
         self.metrics.record_decision_time(elapsed)
     return action
 
-# Fetch the Q-values for a specific state, initializing them to 0.0 if the state is unvisited
+# Fetching the Q-values for a specific state, initializing them to 0.0 if the state is unvisited
 def action_values(self, state):
     return self.q_table.setdefault(state, dict.fromkeys(config.ACTIONS, 0.0))
 
-# Dump the performance timing metrics (mean/max decision time) to a JSON file when the program exits
+# Dumping the performance timing metrics (mean/max decision time) to a JSON file when the program exits
 def _write_decision_summary(self):
     path = Path(self.timing_path)
     path.parent.mkdir(parents=True, exist_ok=True)
