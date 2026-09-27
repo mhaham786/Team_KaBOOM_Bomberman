@@ -11,7 +11,7 @@ from . import config
 from .callbacks import action_values, select_action, state_to_features
 
 
-
+# Initialize SARSA hyperparameters, training state variables, and reset the metrics log file
 def setup_training(self):
     self.alpha = config.ALPHA
     self.gamma = config.GAMMA
@@ -24,7 +24,8 @@ def setup_training(self):
     self.current_steps = 0
     self.metrics = Task3Metrics()
     config.METRICS_PATH.write_text("")
-
+    
+# Calculate a custom shaped reward based on the agent's survival (avoiding danger) and progress toward targets
 def _reward(old_state, action, events):
     reward = task3_rewards_sarsa(events)
     if old_state is None:
@@ -36,7 +37,8 @@ def _reward(old_state, action, events):
     safe_moves = features[1:5]
     target_route = features[5:9]
     good_bomb_spot = features[9]
-
+    
+# Penalize the agent for staying in danger or reward it for moving to safety
     if current_danger:
         if action in ['UP', 'RIGHT', 'DOWN', 'LEFT']:
             action_idx = ['UP', 'RIGHT', 'DOWN', 'LEFT'].index(action)
@@ -47,13 +49,14 @@ def _reward(old_state, action, events):
         else:
             reward -= 10
     else:
+        # Apply a slight time penalty to encourage movement, and penalize moving into unsafe tiles
         reward -= 0.1 
         
         if action in ['UP', 'RIGHT', 'DOWN', 'LEFT']:
             action_idx = ['UP', 'RIGHT', 'DOWN', 'LEFT'].index(action)
             if not safe_moves[action_idx]:
                 reward -= 5
-                
+        # Reward placing a bomb in a useful spot, or reward stepping toward the nearest target
         if action == 'BOMB':
             if good_bomb_spot:
                 reward += 5
@@ -66,7 +69,7 @@ def _reward(old_state, action, events):
 
     return reward
 
-
+# Perform the core SARSA Q-table update using the temporal difference error and update step metrics
 def _record(self, old_game_state, action, new_game_state, next_action, events):
     state = state_to_features(old_game_state)
     reward = _reward(old_game_state, action, events)
@@ -79,7 +82,7 @@ def _record(self, old_game_state, action, new_game_state, next_action, events):
     self.current_steps += 1
     self.metrics.record_events(events, reward, old_game_state, new_game_state)
 
-
+# Process the cached transition from the previous step now that the next action is known
 def _flush_pending(self, terminal=False, events=None):
     pending = self.pending_transition
     final_events = list(events) if events is not None else pending[4]
@@ -88,7 +91,7 @@ def _flush_pending(self, terminal=False, events=None):
     _record(self, pending[0], pending[1], new_state, next_action, final_events)
     self.pending_transition = None
 
-
+# Handle mid-game steps: flush the previous transition, pick the next action, and cache the current state
 def game_events_occurred(
     self, old_game_state, self_action, new_game_state, events
 ):
@@ -100,7 +103,7 @@ def game_events_occurred(
         old_game_state, self_action, new_game_state, next_action, list(events)
     )
 
-
+# Verify if the currently cached transition matches the final state and action of the round
 def _pending_matches(self, game_state, action):
     pending_state, pending_action = self.pending_transition[:2]
     return (
@@ -109,7 +112,7 @@ def _pending_matches(self, game_state, action):
         and pending_action == action
     )
 
-
+# Finalize the episode, process the last transition, decay the exploration rate, and save the model
 def end_of_round(self, last_game_state, last_action, events):
     if self.pending_transition is not None and _pending_matches(
         self, last_game_state, last_action
