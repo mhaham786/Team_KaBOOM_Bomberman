@@ -65,6 +65,102 @@ def action_mask(game_state):
     )
 
 
+def task2_ppo_action_mask(game_state):
+    """Keep safe moves and bombs that safely destroy reachable crates."""
+    field = game_state["field"]
+    position = tuple(game_state["self"][3])
+    bombs = game_state["bombs"]
+    opponents = opponent_positions(game_state["others"])
+    occupied_by_bombs = bomb_positions(bombs)
+    explosion_map = game_state["explosion_map"]
+    hazard = build_time_hazard_model(
+        field,
+        bombs,
+        explosion_map,
+        min_horizon=1,
+    )
+
+    mask = np.zeros(len(ACTIONS), dtype=np.bool_)
+    for index, movement in enumerate(MOVEMENTS):
+        mask[index] = is_walkable(
+            add_position(position, movement),
+            field,
+            occupied_by_bombs,
+            opponents,
+        ) and has_time_safe_path_after_first_move(
+            position,
+            movement,
+            1,
+            field,
+            opponents,
+            hazard,
+        )
+
+    if can_place_bomb(position, game_state["self"][2], occupied_by_bombs):
+        crates, _ = bomb_effects_from(position, field, opponents)
+        mask[5] = crates > 0 and has_safe_bomb_escape(
+            field,
+            position,
+            bombs,
+            opponents,
+            explosion_map,
+            BOMB_TIMER,
+        )
+
+    mask[4] = not mask.any()
+    return mask
+
+
+def task3_ppo_action_mask(game_state):
+    """Keep safe moves and bombs that safely damage crates or opponents."""
+    field = game_state["field"]
+    position = tuple(game_state["self"][3])
+    bombs = game_state["bombs"]
+    opponents = opponent_positions(game_state["others"])
+    occupied_by_bombs = bomb_positions(bombs)
+    explosion_map = game_state["explosion_map"]
+    hazard = build_time_hazard_model(
+        field,
+        bombs,
+        explosion_map,
+        min_horizon=1,
+    )
+
+    mask = np.zeros(len(ACTIONS), dtype=np.bool_)
+    for index, movement in enumerate(MOVEMENTS):
+        mask[index] = is_walkable(
+            add_position(position, movement),
+            field,
+            occupied_by_bombs,
+            opponents,
+        ) and has_time_safe_path_after_first_move(
+            position,
+            movement,
+            1,
+            field,
+            opponents,
+            hazard,
+        )
+
+    if can_place_bomb(position, game_state["self"][2], occupied_by_bombs):
+        crates, opponent_hit = bomb_effects_from(
+            position,
+            field,
+            opponents,
+        )
+        mask[5] = (crates > 0 or opponent_hit) and has_safe_bomb_escape(
+            field,
+            position,
+            bombs,
+            opponents,
+            explosion_map,
+            BOMB_TIMER,
+        )
+
+    mask[4] = not mask.any()
+    return mask
+
+
 def has_safe_bomb_escape(field, position, bombs, opponents, explosion_map, max_steps):
     """Return whether placing a bomb leaves a time-safe escape path."""
     if not isinstance(max_steps, int) or isinstance(max_steps, bool) or max_steps <= 0:

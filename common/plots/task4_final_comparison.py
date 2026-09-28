@@ -167,7 +167,7 @@ def create_figure_task4(metrics):
     plot_win_rate(metrics, ax1, color_map)
     plot_cm_score(metrics, ax2, color_map)
     plot_survival_distribution(metrics, ax3, color_map)
-    plot_average_steps_survived(metrics, ax4)
+    plot_average_steps_survived(metrics, ax4, color_map)
     plot_early_survival_rates(metrics, ax5, color_map)
     plot_first_eliminated_freq(metrics, ax6, color_map)
 

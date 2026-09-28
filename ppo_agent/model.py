@@ -37,7 +37,6 @@ def action_distribution(logits, masks=None):
 
 
 def load_weights(model, state, task1=False):
-    """Validate every tensor before loading; retain only the new BOMB row on transfer."""
     current = model.state_dict()
     if set(state) != set(current):
         raise ValueError("Checkpoint parameter names do not match the PPO model")

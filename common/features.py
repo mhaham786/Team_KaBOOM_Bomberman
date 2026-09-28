@@ -3,14 +3,135 @@ import numpy as np
 from .helpers import *
 
 
+def loot_crate_bfs_oc9(game_state):
+    """Encode walkable moves and a route to the nearest coin or crate.
+
+    Feature layout:
+        0-3: walkability of UP, RIGHT, DOWN, LEFT neighbour tiles.
+        4-7: first BFS direction toward the nearest visible coin, or toward a
+            reachable crate-adjacent tile when no coin is reachable.
+        8: normalized BFS distance to that target, or 1.0 when none is
+            reachable.
+    """
+    if game_state is None:
+        return None
+
+    field = game_state["field"]
+    position = tuple(game_state["self"][3])
+    bombs = bomb_positions(game_state["bombs"])
+    opponents = opponent_positions(game_state["others"])
+    walkability = np.asarray(
+        [
+            is_walkable(
+                add_position(position, movement),
+                field,
+                bombs,
+                opponents,
+            )
+            for movement in MOVEMENTS
+        ],
+        dtype=np.float32,
+    )
+
+    direction, distance = bfs_first_step(
+        field,
+        position,
+        game_state["coins"],
+        bombs,
+        opponents,
+    )
+    if distance is None:
+        targets = crate_adjacent_targets(field, bombs, opponents)
+        direction, distance = bfs_first_step(
+            field,
+            position,
+            targets,
+            bombs,
+            opponents,
+        )
+
+    route = direction_and_distance_features(
+        direction,
+        distance,
+        field.shape,
+    )
+    return np.concatenate((walkability, route))
+
+
+def combat_bfs_oc9(game_state):
+    """Encode walkable moves and a route to a selected combat target.
+
+    Feature layout:
+        0-3: walkability of UP, RIGHT, DOWN, LEFT neighbour tiles.
+        4-7: first BFS direction toward the nearest visible coin, or toward a
+            reachable fallback target when no coin is reachable.
+        8: normalized BFS distance to that target, or 1.0 when none is
+            reachable.
+    """
+    if game_state is None:
+        return None
+
+    field = game_state["field"]
+    position = tuple(game_state["self"][3])
+    bombs = bomb_positions(game_state["bombs"])
+    opponents = opponent_positions(game_state["others"])
+    walkability = np.asarray(
+        [
+            is_walkable(
+                add_position(position, movement),
+                field,
+                bombs,
+                opponents,
+            )
+            for movement in MOVEMENTS
+        ],
+        dtype=np.float32,
+    )
+
+    direction, distance = bfs_first_step(
+        field,
+        position,
+        game_state["coins"],
+        bombs,
+        opponents,
+    )
+    if distance is None:
+        targets = crate_adjacent_targets(field, bombs, opponents)
+        targets.update(opponents)
+        direction, distance = bfs_first_step(
+            field,
+            position,
+            targets,
+            bombs,
+            opponents,
+        )
+
+    route = direction_and_distance_features(
+        direction,
+        distance,
+        field.shape,
+    )
+    return np.concatenate((walkability, route))
+
+
 def coin_heaven_minimal_oc4(game_state):
-    """Encode player and nearest reachable coin as [x, y, coin_x, coin_y]"""
+    """Encode the player and nearest reachable coin coordinates.
+
+    Feature layout:
+        0-1: raw x and y coordinates of the player.
+        2-3: raw x and y coordinates of the nearest reachable coin, or -1 and
+            -1 when no coin is reachable.
+    """
     if game_state is None:
         return None
 
     _, _, _, player_position = game_state["self"]
     player_x, player_y = player_position
-    coin_position = nearest_coin_bfs(game_state["field"], player_position, game_state["coins"])
+    coin_position = nearest_coin_bfs(
+        game_state["field"],
+        player_position,
+        game_state["coins"],
+    )
 
     coin_x, coin_y = coin_position if coin_position is not None else (-1, -1)
     return [float(player_x), float(player_y), float(coin_x), float(coin_y)]
@@ -44,6 +165,7 @@ def coin_heaven_bfs_oc9(game_state):
     )
     route = direction_and_distance_features(direction, distance, field.shape)
     return np.concatenate((walkability, route))
+
 
 def classic_peace_minimal_oc8(game_state):
     """Encode minimal navigation, crate bombing.
@@ -302,6 +424,19 @@ def classic_peace_improved_oc33(game_state):
 
 
 def sarsa_task2_features(game_state):
+    """Encode discrete Task 2 navigation, escape, and bombing information.
+
+    Feature layout:
+        0: whether the current tile is dangerous.
+        1-4: time-safe escape directions UP, RIGHT, DOWN, LEFT when currently
+            in danger, otherwise zero.
+        5-8: safe walkability of UP, RIGHT, DOWN, LEFT when not currently in
+            danger, otherwise zero.
+        9-12: first BFS direction toward the nearest visible coin, or toward a
+            reachable crate-adjacent tile when no coin is reachable.
+        13: whether this agent can currently place a bomb.
+        14: whether a bomb placed at the current tile would destroy a crate.
+    """
     if game_state is None:
         return None
 
@@ -354,7 +489,15 @@ def sarsa_task3_features_oc18(game_state):
     """Extend the 15-value SARSA state with compact hunting information.
 
     Feature layout:
-        0-14: sarsa_task2_features.
+        0: whether the current tile is dangerous.
+        1-4: time-safe escape directions UP, RIGHT, DOWN, LEFT when currently
+            in danger, otherwise zero.
+        5-8: safe walkability of UP, RIGHT, DOWN, LEFT when not currently in
+            danger, otherwise zero.
+        9-12: first BFS direction toward the nearest visible coin, or toward a
+            reachable crate-adjacent tile when no coin is reachable.
+        13: whether this agent can currently place a bomb.
+        14: whether a bomb placed at the current tile would destroy a crate.
         15: BFS opponent direction as 0=none or 1-4=UP, RIGHT, DOWN, LEFT.
         16: whether the nearest reachable opponent is within six steps.
         17: whether a bomb placed here would hit an opponent.
